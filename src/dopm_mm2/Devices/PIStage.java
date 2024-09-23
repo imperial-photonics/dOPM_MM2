@@ -21,7 +21,6 @@ import dopm_mm2.util.MMStudioInstance;
 
 public class PIStage {
 
-    private final CMMCore core_;
     private static final Logger PIStageLogger
             = Logger.getLogger(PIStage.class.getName());
     
@@ -30,11 +29,6 @@ public class PIStage {
      * @param cmmcore 
      */
     public PIStage() {
-        core_ = MMStudioInstance.getCoreInstance();
-    }
-    
-    public PIStage(CMMCore core) {
-        core_ = core;
     }
 
     /* The following commands control stage movement with retry (TODO) ? */
@@ -49,7 +43,7 @@ public class PIStage {
     Each throw PISerialExceptions under failure
      */
     
-    public String checkPIMotion(String port) throws Exception{
+    public static String checkPIMotion(String port) throws Exception{
         /*    
         Returns: movement stats (0 - motion of all axes complete) 
         #5 command is used in GCS ASCII API to indicate that the decimal 5 is being sent directly
@@ -61,15 +55,15 @@ public class PIStage {
         String ans = "";
         String msg = String.valueOf((char)5);
         try {
-            core_.setSerialPortCommand(port, msg, "\n");
-            ans = core_.getSerialPortAnswer(port, "\n");
+            MMStudioInstance.getCore().setSerialPortCommand(port, msg, "\n");
+            ans = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
             return ans;
         } catch (Exception e){
             throw new Exception("Error checking stage motion with #5 with " + e.getMessage());
         }
     }
     
-    public void setupPITriggering(String port, int device) throws Exception {
+    public static void setupPITriggering(String port, int device) throws Exception {
         /* Initialise the PI stage basic trigger output settings */
         setPITriggerEnable(port, device, 0);  // disable triggering
         setPIDigitalOut(port, device, 0);  // set digital (trigger) out to low
@@ -77,7 +71,7 @@ public class PIStage {
         setPITriggerMode(port, device, 0);  // set trigger mode to position/distance trigger
     }
 
-    public void setPIDigitalOut(String port, int device, int level) throws Exception {
+    public static void setPIDigitalOut(String port, int device, int level) throws Exception {
         // First make sure triggering is off, the docs say do not use DIO when trigger enabled.
         setPITriggerEnable(port, device, 0);
         String msg = String.format("DIO %1$d %2$d", device, level);  // ASCII command to set DIO
@@ -91,11 +85,11 @@ public class PIStage {
         }
     }
 
-    public void setPITriggerEnable(String port, int trigOn) throws Exception {
+    public static void setPITriggerEnable(String port, int trigOn) throws Exception {
         setPITriggerEnable(port, 1, trigOn);
     }
 
-    public void setPITriggerEnable(String port, int device, int trigOn) throws Exception {
+    public static void setPITriggerEnable(String port, int device, int trigOn) throws Exception {
         // format: TRO? [{<TrigOutID>}] rtn: {<TrigOutID>"="<TrigMode> LF}
         String msg = String.format("TRO %1$d %2$d", device, trigOn);
         String queryMsg = String.format("TRO? %1$d", device);
@@ -109,11 +103,11 @@ public class PIStage {
         }
     }
 
-    public void setPITriggerAxis(String port, int axis) throws Exception {
+    public static void setPITriggerAxis(String port, int axis) throws Exception {
         setPITriggerAxis(port, 1, axis);
     }
 
-    public void setPITriggerAxis(String port, int device, int axis) throws Exception {
+    public static void setPITriggerAxis(String port, int device, int axis) throws Exception {
         String msg = String.format("CTO %1$d 2 %2$d", device, axis);
         String queryMsg = String.format("CTO? %1$d 2", device);
         // reply format: {<TrigOutID> <CTOPam>"="<Value> LF}
@@ -126,7 +120,7 @@ public class PIStage {
         }
     }
 
-    public void setPITriggerMode(String port, int triggerMode) throws Exception {
+    public static void setPITriggerMode(String port, int triggerMode) throws Exception {
         setPITriggerMode(port, 1, triggerMode);
     }
     
@@ -138,7 +132,7 @@ public class PIStage {
         * @param triggerMode PI trigger mode, 0-position trigger, 2-On Target 3-MinMax Threshold
         *   6-In Motion
     */
-    public void setPITriggerMode(String port, int device, int triggerMode) throws Exception {
+    public static void setPITriggerMode(String port, int device, int triggerMode) throws Exception {
 
         String msg = String.format("CTO %1$d 3 %2$d", device, triggerMode);
         String queryMsg = String.format("CTO? %1$d 3", device);
@@ -151,7 +145,7 @@ public class PIStage {
         }
     }
 
-    public void setPITriggerDistance(String port, int device, double triggerDistance)
+    public static void setPITriggerDistance(String port, int device, double triggerDistance)
             throws Exception {
 
         // min incremental motion is 0.02um (0.00002mm, 1e-5)
@@ -167,7 +161,7 @@ public class PIStage {
         }
     }
 
-    public void setPITriggerRange(String port, int device, double[] triggerRange) throws Exception {
+    public static void setPITriggerRange(String port, int device, double[] triggerRange) throws Exception {
 
         String lowerRangeStr = String.format("%.5f", triggerRange[0]);
         String upperRangeStr = String.format("%.5f", triggerRange[1]);
@@ -191,13 +185,13 @@ public class PIStage {
         }
     }
 
-    public void clearPISerialOutBuffer(String port) {
+    public static void clearPISerialOutBuffer(String port) {
         // sometimes the buffer doesnt get read out
         int max_clears = 1000;
         int i = 0;
         while (i < max_clears) {
             try {
-                core_.getSerialPortAnswer(port, "\n");
+                MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
             } catch (Exception e) {
                 break;
             }
@@ -205,21 +199,23 @@ public class PIStage {
         }
     }
     
-    public void stopPIStage(String port){
-        try {
-            core_.setSerialPortCommand(port, "STP", "\n");
-            core_.setSerialPortCommand(port, "ERR?", "\n");
-            String answerErr = core_.getSerialPortAnswer(port, "\n");
-            if (!answerErr.equals("10")) throw new PIControllerErrorException(String.format(
-                    "Error code %1$s received from PI controller"));
-            // TODO probably check if stage is ready to recieve commands after this (#7!!!)
-
-        } catch (Exception e){
-            
-        }
+    public static void stopPIStage(String port) throws Exception{
+        stopOrHaltPIStage(port, "STP");
     }
 
-    public void setAndCheckSerial(
+    public static void haltPIStage(String port) throws Exception{
+        stopOrHaltPIStage(port, "HLT");
+    }
+    
+    private static void stopOrHaltPIStage(String port, String msg) throws Exception{
+        MMStudioInstance.getCore().setSerialPortCommand(port, msg, "\n");
+        MMStudioInstance.getCore().setSerialPortCommand(port, "ERR?", "\n");
+        String answerErr = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
+        if (!answerErr.equals("10")) throw new PIControllerErrorException(String.format(
+                "Error code %1$s received from PI controller", answerErr));
+    }
+
+    public static void setAndCheckSerial(
             String port, String msg, String queryMsg, Double expectedValue)
             throws TimeoutException, IllegalStateException {
 
@@ -228,25 +224,28 @@ public class PIStage {
         int maxRetry = 5;
         boolean isSet = false;
         String ERR;
+        
+        // define locally for reuse
+        CMMCore core = MMStudioInstance.getCore();
 
         int i = 0;
         do {
             try {
                 PIStageLogger.info(String.format(
                         "Sending serial command %s to %s", msg, port));
-                core_.setSerialPortCommand(port, msg, "\n");
+                core.setSerialPortCommand(port, msg, "\n");
                 // check for errors
-                core_.setSerialPortCommand(port, "ERR?", "\n");
-                ERR = core_.getSerialPortAnswer(port, "\n");
-                if (!ERR.equals("0")) {
+                core.setSerialPortCommand(port, "ERR?", "\n");
+                ERR = core.getSerialPortAnswer(port, "\n");
+                if (!ERR.equals("10")) {
                     String errMsg = String.format(
                             "Error code %1$s from ERR? after sending command %2$s", ERR, msg);
                     PIStageLogger.severe(errMsg);
                     throw new PIControllerErrorException(errMsg);
                 }
 
-                core_.setSerialPortCommand(port, queryMsg, "\n");
-                answer = core_.getSerialPortAnswer(port, "\n");
+                core.setSerialPortCommand(port, queryMsg, "\n");
+                answer = core.getSerialPortAnswer(port, "\n");
                 PIStageLogger.info(String.format(
                         "Received answer %s from %s", answer, port));
                 // get value after being set
@@ -267,39 +266,14 @@ public class PIStage {
         } while (!isSet);
     }
 
-    class PIControllerErrorException extends Exception
-    {
-        public int errorCode;
-        public PIControllerErrorException() {}
-        
-        public PIControllerErrorException(String message){
-            super(message + "[Unknown PI controller error code]");
-        }
-        
-        public PIControllerErrorException(String message, int errorCode){
-            super(message + String.format("[Error code %d in PI controller]", errorCode));
-            this.errorCode = errorCode;
-        }
-    }
-    class PISerialException extends Exception
-    {
-        // Parameterless Constructor
-        public PISerialException() {}
-
-        // Constructor that accepts a message
-        public PISerialException(String message)
-        {
-            super(message);
-        }
-    }
     // These send serial command and get serial answer retries are overkill I think... I will end 
     // up doing waits/retries outside of these functions anyway
-    public void sendSerialCommandRetry(String port, String msg) throws PISerialException {
+    public static void sendSerialCommandRetry(String port, String msg) throws PISerialException {
         // Version of sendSerialCommandRetry with just the port and message as args
         sendSerialCommandRetry(port, msg, "\n", 5);
     }
 
-    public void sendSerialCommandRetry(
+    public static void sendSerialCommandRetry(
             String port, String msg, String terminator, int maxRetry) throws PISerialException {
         boolean sendSerialSuccess = false;
         int intvl_ms = 1000;
@@ -308,7 +282,7 @@ public class PIStage {
         while (!sendSerialSuccess || attempts > maxRetry) {
             WAITTIME = attempts * attempts * intvl_ms;
             try {
-                core_.setSerialPortCommand(port, msg, terminator);
+                MMStudioInstance.getCore().setSerialPortCommand(port, msg, terminator);
             } catch (Exception ex) {
                 attempts++;
                 PIStageLogger.warning("sendSerialCommandRetry failed (waiting "
@@ -328,12 +302,12 @@ public class PIStage {
         }
     }
 
-    public String getSerialAnswerCommandRetry(String port) throws PISerialException {
+    public static String getSerialAnswerCommandRetry(String port) throws PISerialException {
         // Version of getSerialAnswerCommandRetry with just the port as arg
         return getSerialAnswerCommandRetry(port, "\n", 5);
     }
 
-    public String getSerialAnswerCommandRetry(
+    public static String getSerialAnswerCommandRetry(
             String port, String terminator, int maxRetry) throws PISerialException {
         boolean getSerialSuccess = false;
         int intvl_ms = 1000;
@@ -342,7 +316,7 @@ public class PIStage {
         while (!getSerialSuccess || attempts > maxRetry) {
             WAITTIME = attempts * attempts * intvl_ms;
             try {
-                return core_.getSerialPortAnswer(port, terminator);
+                return MMStudioInstance.getCore().getSerialPortAnswer(port, terminator);
             } catch (Exception ex) {
                 attempts++;
                 PIStageLogger.warning("getSerialCommandRetry failed (waiting "
@@ -362,5 +336,32 @@ public class PIStage {
         }
         return "";
     }
+    /** Exception that reports an error message from the stage
+     * 
+     */
+    static class PIControllerErrorException extends Exception
+    {
+        public int errorCode;
+        public PIControllerErrorException() {}
+        
+        public PIControllerErrorException(String message){
+            super(message + "[Unknown PI controller error code]");
+        }
+        
+        public PIControllerErrorException(String message, int error){
+            super(message + String.format("[Error code %d in PI controller]", error));
+            errorCode = error;
+        }
+    }
+    static class PISerialException extends Exception
+    {
+        // Parameterless Constructor
+        public PISerialException() {}
 
+        // Constructor that accepts a message
+        public PISerialException(String message)
+        {
+            super(message);
+        }
+    }
 }

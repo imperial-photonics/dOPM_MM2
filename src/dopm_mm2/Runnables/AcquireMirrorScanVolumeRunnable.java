@@ -35,7 +35,7 @@ public class AcquireMirrorScanVolumeRunnable {
     private final CMMCore core_;
     private final Studio mm_;
     private DisplayManager displayManager;
-    private int PIDeviceID = 1;
+    private int PIDeviceID;
     private static final Logger runnableLogger = 
             Logger.getLogger(AcquireMirrorScanVolumeRunnable.class.getName());
     private DeviceManager deviceSettings;
@@ -47,10 +47,7 @@ public class AcquireMirrorScanVolumeRunnable {
         mm_ = dOPM_hostframe.mm_;
         core_ = mm_.getCMMCore();
         deviceSettings = frame_.getDeviceSettings();
-        
-        // dependence injection pattern, looking to deplace with a singleton class method
-        control = new PIStage(core_);
-
+        PIDeviceID = 1;
     }
 
     @SuppressWarnings("UnusedAssignment")

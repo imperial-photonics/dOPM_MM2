@@ -56,7 +56,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         
         // singleton which contains studio and core so i dont have to inject every time
         MMStudioInstance.initialize(mm);
-        core_ = MMStudioInstance.getCoreInstance();
+        core_ = MMStudioInstance.getCore();
 
         frame_ = this;
         frame_.setTitle("OPM controller for Micro-manager 2");

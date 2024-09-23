@@ -39,8 +39,8 @@ public class FileMM {
 	
 	System.gc();
         
-        Studio mm_ = MMStudioInstance.getMMStudioInstance();
-        CMMCore core_ = MMStudioInstance.getCoreInstance();
+        Studio mm_ = MMStudioInstance.getStudio();
+        CMMCore core_ = MMStudioInstance.getCore();
         ScriptController sc = mm_.getScriptController();
 	
 	try {
@@ -86,8 +86,8 @@ public class FileMM {
 
     public static int deleteDatastore(String camName, String saveDir, boolean delDirBool) throws IOException{
         
-        Studio mm_ = MMStudioInstance.getMMStudioInstance();
-        CMMCore core_ = MMStudioInstance.getCoreInstance();
+        Studio mm_ = MMStudioInstance.getStudio();
+        CMMCore core_ = MMStudioInstance.getCore();
         ScriptController sc = mm_.getScriptController();
         
         String fileSaveFolderDir = saveDir + "/";

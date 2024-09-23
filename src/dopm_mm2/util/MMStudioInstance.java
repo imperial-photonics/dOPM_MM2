@@ -26,14 +26,14 @@ public class MMStudioInstance {
         }
     }
     
-    public static Studio getMMStudioInstance() {
+    public static Studio getStudio() {
         if (studioInstance == null) {
             throw new IllegalStateException("MMStudioInstance has not been initialized yet.");
         }
         return studioInstance; 
     }
 
-    public static CMMCore getCoreInstance() {
+    public static CMMCore getCore() {
         if (coreInstance == null) {
             throw new IllegalStateException("MMStudioInstance has not been initialized yet.");
         }

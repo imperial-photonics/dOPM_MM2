@@ -69,7 +69,7 @@ public class DeviceManager {
     public CMMCore core_ = null;
     
     public DeviceManager(){
-        core_ = MMStudioInstance.getCoreInstance();
+        core_ = MMStudioInstance.getCore();
     }
     
     /** Constructor with CMMCore instance injected, prefer to use empty parameter version now
