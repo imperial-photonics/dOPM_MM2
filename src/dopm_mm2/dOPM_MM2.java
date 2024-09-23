@@ -21,7 +21,7 @@ import dopm_mm2.GUI.dOPM_hostframe;
 public class dOPM_MM2 implements MenuPlugin, SciJavaPlugin{
     //Name for the plugin
     public static final String MENU_NAME = "dOPM MDA";
-    private Studio gui_;    
+    private Studio mm_;    
     public static JFrame frame_;
     
     @Override
@@ -33,14 +33,14 @@ public class dOPM_MM2 implements MenuPlugin, SciJavaPlugin{
     @Override
     public void onPluginSelected() {
         //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        frame_ = new dOPM_hostframe(gui_);
+        frame_ = new dOPM_hostframe(mm_);
         frame_.setVisible(true);
     }
 
     @Override
     public void setContext(Studio studio) {
         //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        gui_ = studio;
+        mm_ = studio;
     }
 
     @Override

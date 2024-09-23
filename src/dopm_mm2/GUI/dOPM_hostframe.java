@@ -15,7 +15,8 @@ import org.micromanager.Studio;
 import mmcorej.CMMCore;
 import org.micromanager.ScriptController;
 import org.micromanager.data.Datastore;
-import dopm_mm2.Devices.deviceManager;
+import dopm_mm2.Devices.DeviceManager;
+import dopm_mm2.util.MMStudioInstance;
 /**
  *
  * @author lnr19
@@ -32,48 +33,14 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private boolean interruptFlag;
     private Datastore datastore;
     
-    // Device names
-    private Object devices;
-    
-    // Device settings, states, etc.
-    private String[] laserChannelsAcq;
-    private String[] laserPowersAcq;
-    private String[] filtersAcq;
-
-    // Trigger settings
-    private double scanLength = 0;  // um
-    private double triggerDistance = 1;  // um
-    private int triggerMode = 0;
-    private String[] triggerModeStrings = 
-        {"External trigger (global exposure)", "External trigger (rolling)", "Untriggered"};
-    private boolean useMaxScanSpeed = false;
-    private double scanSpeedSafetyFactor = 0.95;
-    
-    private int[] z_lim = {-12000000,1000000};
-    
-    private String xyStageName;
-    private int xyStageTravelSpeed; // mm/s (um/ms)
-    private String xyStageComPort;
-
-    private String mirrorStageName;
-    private int mirrorStageSpeed;
-    private String mirrorStagePort;
-    
-    private String zStageName;
-    private int zStageTravelSpeed;  // mm/s (um/ms)
-    private String zStageComPort;
-    
-    private String camName;
-    private double exposureTime;  // ms
-    private double actualExposureTime;
-
-    //Time-lapse settings, TODO
-    
-    //Base folder directory and other directories
+    // Base folder directory and other directories
     private String baseFolderDir;
     private String settingsFolderDir;
     private String dataFolderDir;
     
+    // Device settings object
+    DeviceManager deviceSettings;    
+
     //Other settings ?
     // ...
     
@@ -87,15 +54,17 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     public dOPM_hostframe(Studio mm) {
         initComponents();
         
-        core_ = mm_.getCMMCore();
+        // singleton which contains studio and core so i dont have to inject every time
+        MMStudioInstance.initialize(mm);
+        core_ = MMStudioInstance.getCoreInstance();
 
         frame_ = this;
         frame_.setTitle("OPM controller for Micro-manager 2");
         frame_.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
-        devices = new deviceManager(core_);
-        
+        deviceSettings = new DeviceManager(core_);
+                
     }
-    
+        
     private Object[] getLaserChannelOptions() throws Exception{
         throw new Exception("Not implemented");
     }
@@ -459,15 +428,15 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
     private void maxSpeedCheckBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_maxSpeedCheckBoxActionPerformed
         if (maxSpeedCheckBox.isSelected()){
-            setUseMaxScanSpeed(true);
+            deviceSettings.setUseMaxScanSpeed(true);
         } else {
-            setUseMaxScanSpeed(false);
+            deviceSettings.setUseMaxScanSpeed(false);
         }
         
     }//GEN-LAST:event_maxSpeedCheckBoxActionPerformed
 
     private void triggerModeComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_triggerModeComboBoxActionPerformed
-        setTriggerMode(triggerModeComboBox.getSelectedIndex());
+        deviceSettings.setTriggerMode(triggerModeComboBox.getSelectedIndex());
         // update max speed
         // updateMaxScanSpeed()
     }//GEN-LAST:event_triggerModeComboBoxActionPerformed
@@ -503,8 +472,8 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private void scanLengthFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_scanLengthFieldActionPerformed
         // TODO add your handling code here:
         String scanLengthStr = scanIntervalField.getText();
-        scanLength = Double.parseDouble(scanLengthStr);
-        setScanLength(scanLength);
+        double scanLength = Double.parseDouble(scanLengthStr);
+        deviceSettings.setScanLength(scanLength);
     }//GEN-LAST:event_scanLengthFieldActionPerformed
 
     private void startButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_startButtonActionPerformed
@@ -512,10 +481,11 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_startButtonActionPerformed
 
     private void updateMaxScanSpeed(){
-        // deviceManager.getCameraReadoutTime(1);
-        
-        double maxSpeed = (getTriggerDistance()/getMirrorStageSpeed());
+        // DeviceManager.getCameraReadoutTime(1);
+        double maxSpeed = 
+                (deviceSettings.getTriggerDistance()/deviceSettings.getCameraReadoutTime());
     }
+    
     class typeVerifierDouble extends InputVerifier {
         @Override
         public boolean verify(JComponent input) {
@@ -566,170 +536,6 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         this.interruptFlag = interruptFlag;
     } 
     
-    public String[] getLaserChannelsAcq() {
-        return laserChannelsAcq;
-    }
-
-    public void setLaserChannelsAcq(String[] laserChannels) {
-        this.laserChannelsAcq = laserChannels;
-    }
-
-    public String[] getLaserPowersAcq() {
-        return laserPowersAcq;
-    }
-
-    public void setLaserPowersAcq(String[] laserPowers) {
-        this.laserPowersAcq = laserPowers;
-    }
-
-    public String[] getFiltersAcq() {
-        return filtersAcq;
-    }
-
-    public void setFiltersAcq(String[] filters) {
-        this.filtersAcq = filters;
-    }
-
-    public double getScanLength() {
-        return scanLength;
-    }
-
-    public void setScanLength(double scanLength) {
-        this.scanLength = scanLength;
-    }
-
-    public double getTriggerDistance() {
-        return triggerDistance;
-    }
-
-    public void setTriggerDistance(double triggerDistance) {
-        this.triggerDistance = triggerDistance;
-    }
-
-    public int getTriggerMode() {
-        return triggerMode;
-    }
-
-    public void setTriggerMode(int triggerMode) {
-        this.triggerMode = triggerMode;
-    }
-
-    public boolean isUseMaxScanSpeed() {
-        return useMaxScanSpeed;
-    }
-
-    public void setUseMaxScanSpeed(boolean useMaxScanSpeed) {
-        this.useMaxScanSpeed = useMaxScanSpeed;
-    }
-
-    public int[] getZ_lim() {
-        return z_lim;
-    }
-
-    public void setZ_lim(int[] z_lim) {
-        this.z_lim = z_lim;
-    }
-
-    public String getXyStageName() {
-        return xyStageName;
-    }
-
-    public void setXyStageName(String xyStageName) {
-        this.xyStageName = xyStageName;
-    }
-
-    public int getXyStageTravelSpeed() {
-        return xyStageTravelSpeed;
-    }
-
-    public void setXyStageTravelSpeed(int xyStageTravelSpeed) {
-        this.xyStageTravelSpeed = xyStageTravelSpeed;
-    }
-
-    public String getXyStageComPort() {
-        return xyStageComPort;
-    }
-
-    public void setXyStageComPort(String xyStageComPort) {
-        this.xyStageComPort = xyStageComPort;
-    }
-
-    public String getMirrorStageName() {
-        return mirrorStageName;
-    }
-
-    public void setMirrorStageName(String mirrorStageName) {
-        this.mirrorStageName = mirrorStageName;
-    }
-
-    public int getMirrorStageSpeed() {
-        return mirrorStageSpeed;
-    }
-
-    public void setMirrorStageSpeed(int mirrorStageSpeed) {
-        this.mirrorStageSpeed = mirrorStageSpeed;
-        // will move this stuff to backend...
-        // deviceManager.setMirrorStageSpeed(mirrorStageSpeed);
-    }
-
-    public String getMirrorStagePort() {
-        return mirrorStagePort;
-    }
-
-    public void setMirrorStagePort(String mirrorStagePort) {
-        this.mirrorStagePort = mirrorStagePort;
-    }
-    
-    
-
-    public String getzStageName() {
-        return zStageName;
-    }
-
-    public void setzStageName(String zStageName) {
-        this.zStageName = zStageName;
-    }
-
-    public int getzStageTravelSpeed() {
-        return zStageTravelSpeed;
-    }
-
-    public void setzStageTravelSpeed(int zStageTravelSpeed) {
-        this.zStageTravelSpeed = zStageTravelSpeed;
-    }
-
-    public String getzStageComPort() {
-        return zStageComPort;
-    }
-
-    public void setzStageComPort(String zStageComPort) {
-        this.zStageComPort = zStageComPort;
-    }
-
-    public String getCamName() {
-        return camName;
-    }
-
-    public void setCamName(String camName) {
-        this.camName = camName;
-    }
-
-    public double getExposureTime() {
-        return exposureTime;
-    }
-
-    public void setExposureTime(double exposureTime) {
-        this.exposureTime = exposureTime;
-    }
-
-    public double getActualExposureTime() {
-        return actualExposureTime;
-    }
-
-    public void setActualExposureTime(double actualExposureTime) {
-        this.actualExposureTime = actualExposureTime;
-    }
-
     public String getBaseFolderDir() {
         return baseFolderDir;
     }
@@ -753,6 +559,15 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     public void setDataFolderDir(String dataFolderDir) {
         this.dataFolderDir = dataFolderDir;
     }
+
+    public DeviceManager getDeviceSettings() {
+        return deviceSettings;
+    }
+
+    public void setDeviceSettings(DeviceManager deviceSettings) {
+        this.deviceSettings = deviceSettings;
+    }
+    
     /**
      * @param args the command line arguments
      */
