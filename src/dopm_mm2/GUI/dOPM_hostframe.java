@@ -16,7 +16,10 @@ import mmcorej.CMMCore;
 import org.micromanager.ScriptController;
 import org.micromanager.data.Datastore;
 import dopm_mm2.Devices.DeviceManager;
+import dopm_mm2.Runnables.PIScanRunnable;
 import dopm_mm2.util.MMStudioInstance;
+import java.io.File;
+
 /**
  *
  * @author lnr19
@@ -34,9 +37,11 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private Datastore datastore;
     
     // Base folder directory and other directories
-    private String baseFolderDir;
-    private String settingsFolderDir;
-    private String dataFolderDir;
+    private File baseFolderDir;
+    private File settingsFolderDir;
+    private File dataFolderDir;
+    
+    private boolean saveImgToDisk;
     
     // Device settings object
     DeviceManager deviceSettings;    
@@ -63,6 +68,10 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         frame_.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
         deviceSettings = new DeviceManager(core_);
                 
+        saveImgToDisk = true;
+        baseFolderDir = new File(".");
+        dataFolderDir = new File(baseFolderDir, "data");
+        settingsFolderDir = new File(baseFolderDir, "settings");
     }
         
     private Object[] getLaserChannelOptions() throws Exception{
@@ -121,6 +130,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         saveDirectoryLabel = new javax.swing.JLabel();
         saveDirectoryField = new javax.swing.JTextField();
         browseDirectoryField = new javax.swing.JButton();
+        saveToDiskCheckBox = new javax.swing.JCheckBox();
         channelSettingsPanel = new javax.swing.JPanel();
         channelScrollPane = new javax.swing.JScrollPane();
         channelTable = new javax.swing.JTable();
@@ -261,17 +271,32 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
+        saveToDiskCheckBox.setText("Save to disk");
+        saveToDiskCheckBox.setAlignmentX(1.0F);
+        saveToDiskCheckBox.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        saveToDiskCheckBox.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
+        saveToDiskCheckBox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                saveToDiskCheckBoxActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout fileSettingsPanelLayout = new javax.swing.GroupLayout(fileSettingsPanel);
         fileSettingsPanel.setLayout(fileSettingsPanelLayout);
         fileSettingsPanelLayout.setHorizontalGroup(
             fileSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(fileSettingsPanelLayout.createSequentialGroup()
-                .addGap(7, 7, 7)
-                .addComponent(saveDirectoryLabel)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(saveDirectoryField, javax.swing.GroupLayout.PREFERRED_SIZE, 222, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(browseDirectoryField)
+                .addGroup(fileSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(fileSettingsPanelLayout.createSequentialGroup()
+                        .addGap(7, 7, 7)
+                        .addComponent(saveDirectoryLabel)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(saveDirectoryField, javax.swing.GroupLayout.PREFERRED_SIZE, 222, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(browseDirectoryField))
+                    .addGroup(fileSettingsPanelLayout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(saveToDiskCheckBox)))
                 .addContainerGap(17, Short.MAX_VALUE))
         );
         fileSettingsPanelLayout.setVerticalGroup(
@@ -281,7 +306,9 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                     .addComponent(saveDirectoryLabel)
                     .addComponent(saveDirectoryField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(browseDirectoryField))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(saveToDiskCheckBox)
+                .addContainerGap())
         );
 
         channelSettingsPanel.setBorder(javax.swing.BorderFactory.createTitledBorder(null, "Channel settings", javax.swing.border.TitledBorder.CENTER, javax.swing.border.TitledBorder.DEFAULT_POSITION));
@@ -383,22 +410,26 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             .addGroup(layout.createSequentialGroup()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(channelSettingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(cameraSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(scanSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(fileSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                    .addComponent(channelSettingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                    .addComponent(cameraSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                    .addComponent(scanSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                    .addComponent(fileSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                .addGap(20, 20, 20)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                                    .addComponent(startButton)
+                                    .addComponent(stopButton))
+                                .addGap(18, 18, 18)
+                                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 307, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addGap(0, 0, Short.MAX_VALUE))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addGap(20, 20, 20)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(startButton)
-                            .addComponent(stopButton))
-                        .addGap(18, 18, 18)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(jProgressBar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 307, Short.MAX_VALUE))))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(jProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, 307, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -413,14 +444,14 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 .addComponent(fileSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(startButton)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(stopButton))
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 66, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 69, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(jProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, 13, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
 
         pack();
@@ -448,9 +479,9 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         int returnVal = fc.showDialog(this, "Select");
         
         if (returnVal == JFileChooser.APPROVE_OPTION){
-            baseFolderDir = fc.getSelectedFile().getAbsolutePath();
-            baseFolderDir = baseFolderDir.replace("\\","/") + '/';
-            browseDirectoryField.setText(baseFolderDir);
+            baseFolderDir = fc.getSelectedFile();
+            browseDirectoryField.setText(baseFolderDir.getAbsolutePath());
+            setDataFolderDir(new File(baseFolderDir, "data"));
         }
     }//GEN-LAST:event_browseDirectoryFieldActionPerformed
 
@@ -477,8 +508,27 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_scanLengthFieldActionPerformed
 
     private void startButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_startButtonActionPerformed
-        // TODO add your handling code here:
+        // run the runnable
+        // PIScanRunnable mirrorScanRunnable = new PIScanRunnable(this);
+        PIScanRunnable mirrorScanRunnable = new PIScanRunnable(this); 
+        Thread mirrorScanRunnableThread = new Thread(mirrorScanRunnable);
+            mirrorScanRunnableThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(Thread t, Throwable e) {
+                // Handle the uncaught exception here (e.g., log it, alert users, etc.)
+                dOPM_hostframeLogger.severe("Exception in thread " + t.getName() + ": " + e.getMessage());
+            }
+        });        
+        mirrorScanRunnableThread.start();
     }//GEN-LAST:event_startButtonActionPerformed
+
+    private void saveToDiskCheckBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveToDiskCheckBoxActionPerformed
+        if (saveToDiskCheckBox.isSelected()){
+            setSaveImgToDisk(true);
+        } else {
+            setSaveImgToDisk(false);
+        }
+    }//GEN-LAST:event_saveToDiskCheckBoxActionPerformed
 
     private void updateMaxScanSpeed(){
         // DeviceManager.getCameraReadoutTime(1);
@@ -527,7 +577,17 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
             return false;
         }
-    } 
+    }
+
+    public boolean isSaveImgToDisk() {
+        return saveImgToDisk;
+    }
+
+    public void setSaveImgToDisk(boolean saveImgToDisk) {
+        this.saveImgToDisk = saveImgToDisk;
+    }
+    
+    
     public boolean getInterruptFlag() {
         return interruptFlag;
     }
@@ -536,27 +596,29 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         this.interruptFlag = interruptFlag;
     } 
     
-    public String getBaseFolderDir() {
+    public File getBaseFolderDir() {
         return baseFolderDir;
     }
 
-    public void setBaseFolderDir(String baseFolderDir) {
+    public void setBaseFolderDir(File baseFolderDir) {
         this.baseFolderDir = baseFolderDir;
+        setSettingsFolderDir(new File(baseFolderDir, "settings"));
+        setDataFolderDir(new File(baseFolderDir, "data"));
     }
 
-    public String getSettingsFolderDir() {
+    public File getSettingsFolderDir() {
         return settingsFolderDir;
     }
 
-    public void setSettingsFolderDir(String settingsFolderDir) {
+    public void setSettingsFolderDir(File settingsFolderDir) {
         this.settingsFolderDir = settingsFolderDir;
     }
 
-    public String getDataFolderDir() {
+    public File getDataFolderDir() {
         return dataFolderDir;
     }
 
-    public void setDataFolderDir(String dataFolderDir) {
+    public void setDataFolderDir(File dataFolderDir) {
         this.dataFolderDir = dataFolderDir;
     }
 
@@ -624,6 +686,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private javax.swing.JButton removeRowButton;
     private javax.swing.JTextField saveDirectoryField;
     private javax.swing.JLabel saveDirectoryLabel;
+    private javax.swing.JCheckBox saveToDiskCheckBox;
     private javax.swing.JTextField scanIntervalField;
     private javax.swing.JLabel scanIntervalLabel;
     private javax.swing.JTextField scanLengthField;

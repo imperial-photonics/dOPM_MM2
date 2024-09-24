@@ -70,6 +70,10 @@ public class PIStage {
         setPITriggerAxis(port, device, 1);  // set trigger axis to be 1 (our PI is 1-axis anyway)
         setPITriggerMode(port, device, 0);  // set trigger mode to position/distance trigger
     }
+    
+    public static void setPIDigitalOut(String port, int level) throws Exception {
+        setPIDigitalOut(port, 1, level);
+    }
 
     public static void setPIDigitalOut(String port, int device, int level) throws Exception {
         // First make sure triggering is off, the docs say do not use DIO when trigger enabled.
