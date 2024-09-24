@@ -460,8 +460,12 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private void maxSpeedCheckBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_maxSpeedCheckBoxActionPerformed
         if (maxSpeedCheckBox.isSelected()){
             deviceSettings.setUseMaxScanSpeed(true);
+            double maxScanSpeed = deviceSettings.getMaxTriggeredScanSpeed();
+            scanSpeedField.setText(String.format("%.3f", maxScanSpeed));
         } else {
             deviceSettings.setUseMaxScanSpeed(false);
+            double currentScanSpeed = deviceSettings.getScanSpeed();
+            scanSpeedField.setText(String.format("%.3f", currentScanSpeed));
         }
         
     }//GEN-LAST:event_maxSpeedCheckBoxActionPerformed

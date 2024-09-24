@@ -48,16 +48,21 @@ public class DeviceManager {
     
     private int[] z_lim = {-12000000,1000000};
     
+    
+    private double maxTriggeredScanSpeed;  // max possible scan speed for triggering config
+
     private String xyStageName;
-    private int xyStageTravelSpeed; // mm/s (um/ms)
+    private double xyStageTravelSpeed; // mm/s (um/ms)
+    private double xyStageScanSpeed;  //  scan speed used by stages in scanned acq--not travel
     private String xyStageComPort;
 
     private String mirrorStageName;
-    private int mirrorStageSpeed;
+    private double mirrorStageSpeed;
+    private double mirrorStageScanSpeed;  //  scan speed used by stages in scanned acq--not travel
     private String mirrorStageComPort;
     
     private String zStageName;
-    private int zStageTravelSpeed;  // mm/s (um/ms)
+    private double zStageTravelSpeed;  // mm/s (um/ms)
     private String zStageComPort;
     
     private double exposureTime;  // ms
@@ -221,7 +226,25 @@ public class DeviceManager {
         }
         return null;
     }
-            
+
+    public double getScanSpeedSafetyFactor() {
+        return scanSpeedSafetyFactor;
+    }
+
+    public void setScanSpeedSafetyFactor(double scanSpeedSafetyFactor) {
+        this.scanSpeedSafetyFactor = scanSpeedSafetyFactor;
+    }
+
+    public double getMaxTriggeredScanSpeed() {
+        return maxTriggeredScanSpeed;
+    }
+
+    public void setMaxTriggeredScanSpeed(double maxTriggeredScanSpeed) {
+        this.maxTriggeredScanSpeed = 
+                (getTriggerDistance()/getCameraReadoutTime())*getScanSpeedSafetyFactor();
+    }
+    
+    
     public String[] getLaserChannelsAcq() {
         return laserChannelsAcq;
     }
@@ -298,11 +321,11 @@ public class DeviceManager {
         }
     }
 
-    public int getXyStageTravelSpeed() {
+    public double getXyStageTravelSpeed() {
         return xyStageTravelSpeed;
     }
 
-    public void setXyStageTravelSpeed(int xyStageTravelSpeed) {
+    public void setXyStageTravelSpeed(double xyStageTravelSpeed) {
         this.xyStageTravelSpeed = xyStageTravelSpeed;
     }
 
@@ -325,11 +348,11 @@ public class DeviceManager {
         }
     }
 
-    public int getMirrorStageSpeed() {
+    public double getMirrorStageSpeed() {
         return mirrorStageSpeed;
     }
 
-    public void setMirrorStageSpeed(int mirrorStageSpeed) {
+    public void setMirrorStageSpeed(double mirrorStageSpeed) {
         this.mirrorStageSpeed = mirrorStageSpeed;
         // will move this stuff to backend...
         // DeviceManager.setMirrorStageSpeed(mirrorStageSpeed);
@@ -356,11 +379,11 @@ public class DeviceManager {
 
     }
 
-    public int getzStageTravelSpeed() {
+    public double getzStageTravelSpeed() {
         return zStageTravelSpeed;
     }
 
-    public void setzStageTravelSpeed(int zStageTravelSpeed) {
+    public void setzStageTravelSpeed(double zStageTravelSpeed) {
         this.zStageTravelSpeed = zStageTravelSpeed;
     }
 
