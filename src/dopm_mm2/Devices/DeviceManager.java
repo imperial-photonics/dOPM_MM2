@@ -7,6 +7,7 @@ package dopm_mm2.Devices;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.logging.Logger;
@@ -28,7 +29,7 @@ public class DeviceManager {
     private String XYStageDeviceName;
     private String ZStageDeviceName;
     private String MirrorStageDeviceName;
-    private String CameraDeviceName = "";
+    private String CameraDeviceName;
     private StrVector deviceList;
     private List<DeviceDetails> detailsOfDevicesInUse;
 
@@ -38,18 +39,15 @@ public class DeviceManager {
     private String[] filtersAcq;
 
     // Trigger settings
-    private double scanLength = 0;  // um
-    private double triggerDistance = 1;  // um
-    private int triggerMode = 0;
-    private String[] triggerModeStrings = 
-        {"External trigger (global exposure)", "External trigger (rolling)", "Untriggered"};
+    private double scanLength;  // um
+    private double triggerDistance;  // um
+    private int triggerMode;
+    private String[] triggerModeStrings;
     private boolean useMaxScanSpeed = false;
-    private double scanSpeedSafetyFactor = 0.95;
-    
-    private int[] z_lim = {-12000000,1000000};
-    
-    
+    private double scanSpeedSafetyFactor;
     private double maxTriggeredScanSpeed;  // max possible scan speed for triggering config
+
+    private int[] z_lim;  // unused probably
 
     private String xyStageName;
     private double xyStageTravelSpeed; // mm/s (um/ms)
@@ -75,6 +73,7 @@ public class DeviceManager {
     
     public DeviceManager(){
         core_ = MMStudioInstance.getCore();
+        initVars();
     }
     
     /** Constructor with CMMCore instance injected, prefer to use empty parameter version now
@@ -83,18 +82,79 @@ public class DeviceManager {
      */
     public DeviceManager(CMMCore cmmcore) {
         core_ = cmmcore;
+        initVars();
         loadAllDeviceNames();  // uMgr StrVector object
+    }
+    
+    private void initVars(){
+        triggerModeStrings = new String[]
+                {"External trigger (global exposure)", "External trigger (rolling)", "Untriggered"};
+        scanSpeedSafetyFactor = 0.95;
+        z_lim = new int[]{-12000000,1000000};
+        laserDeviceNames = new ArrayList(Arrays.asList(""));
+        
+        filterDeviceName = "";
+        XYStageDeviceName = "";
+        ZStageDeviceName = "";
+        MirrorStageDeviceName = "";
+        CameraDeviceName = "";
+        deviceList = null;
+        detailsOfDevicesInUse = null;
+
+        // Device settings, states, etc.
+        laserChannelsAcq = null;
+        laserPowersAcq = null;
+        filtersAcq = null;
+
+        // Trigger settings
+        scanLength = 50.0;  // Initialized to 50 um
+        triggerDistance = 1.0;  // Initialized to 1 um
+        triggerMode = 0;  // Initialized to zero
+        useMaxScanSpeed = false;  // Initialized to false
+        scanSpeedSafetyFactor = 0.95;
+        maxTriggeredScanSpeed = 0.01;  // safely slow
+
+        xyStageName = ""; 
+        xyStageTravelSpeed = 0.0;
+        xyStageScanSpeed = 0.0;
+        xyStageComPort = "";
+
+        mirrorStageName = "";
+        mirrorStageSpeed = 10.0;
+        mirrorStageScanSpeed = 0.01; // safely slow
+        mirrorStageComPort = "";
+
+        zStageName = "";
+        zStageTravelSpeed = 10.0;
+        zStageComPort = "";
+
+        exposureTime = 10.0;
+        actualExposureTime = 10.0;
+        frameSize = new Rectangle(0, 0, 2304, 2304);  // Initialized to null
+        
     }
     
     private void loadAllDeviceNames(){
         setDeviceList(core_.getLoadedDevices());
     }
+    
     /** Loads device names (name in micromanager config) from CSV.
         The idea is to use a GUI to pick the devices from the list, and then
         the GUI interface allows you to save to CSV.
+        * @param configDetailsCsv Filename of config file, format:
+        * ----- CSV file -----
+        *   laser,laserProperty1,laserPropery2,...,\n
+        *   camera,cameraProperty,\n
+        *   filter,filterProperty,\n
+        *   XYStage,XYStageProperty,\n
+        *   Zstage,ZstageProperty,\n
+        *   mirrorStage,mirrorStageProperty,\n
+        *   XYStageCOMPort,XYStageCOMPortProperty,\n
+        *   ZstageCOMPort,ZstageCOMPortProperty,\n
+        *   mirrorStageCOMPort,mirrorStageCOMPortProperty,\n
+        * ---------------------
      */
-    public void loadDeviceNames(String configDetailsCsv){
-
+    public void loadDeviceNames(File configDetailsCsv){
         try (BufferedReader br = new BufferedReader(new FileReader(configDetailsCsv))) {
             List<List<String>> configData = new ArrayList<>();
             String line;
@@ -135,12 +195,12 @@ public class DeviceManager {
         } catch (FileNotFoundException ex) {
             deviceManagerLogger.warning(ex.getMessage());
             JOptionPane.showMessageDialog(null,
-                    String.format("No config file found at %s",configDetailsCsv),
+                    String.format("No config file found at %s",configDetailsCsv.getAbsoluteFile()),
                     "File not found",JOptionPane.ERROR_MESSAGE);
         } catch (IOException ex){
             deviceManagerLogger.warning(ex.getMessage());
             JOptionPane.showMessageDialog(null,
-                    String.format("Failed to load file at %s",configDetailsCsv),
+                    String.format("Failed to load file at %s",configDetailsCsv.getAbsoluteFile()),
                     "File not found",JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex){
             deviceManagerLogger.warning(ex.getMessage());
@@ -189,8 +249,13 @@ public class DeviceManager {
         /* Get frame time for camera based on the exposure time and the camera mode */
         int trigger = getTriggerMode();
         //String triggerSource = core_.getProperty(getCameraDeviceName(), "TRIGGER SOURCE");
-
-        Rectangle roi = getFrameSize();
+        Rectangle roi;
+        try {
+            roi = core_.getROI();
+        } catch (Exception e){
+            deviceManagerLogger.warning("Failed to get ROI, reverting to default");
+            roi = getFrameSize();
+        }
         // oneH = 9.74439/1000;  // Orca Flash v4 1H in ms (line horizontal readout time)
         double oneH = 4.867647*1e-3; // Orca fusion, note that it's halved(ish) wrt flash
         double Vn = roi.height;
@@ -329,6 +394,14 @@ public class DeviceManager {
         this.xyStageTravelSpeed = xyStageTravelSpeed;
     }
 
+    public double getXyStageScanSpeed() {
+        return xyStageScanSpeed;
+    }
+
+    public void setXyStageScanSpeed(double xyStageScanSpeed) {
+        this.xyStageScanSpeed = xyStageScanSpeed;
+    }
+    
     public String getXyStageComPort() {
         return xyStageComPort;
     }
@@ -357,6 +430,15 @@ public class DeviceManager {
         // will move this stuff to backend...
         // DeviceManager.setMirrorStageSpeed(mirrorStageSpeed);
     }
+
+    public double getMirrorStageScanSpeed() {
+        return mirrorStageScanSpeed;
+    }
+
+    public void setMirrorStageScanSpeed(double mirrorStageScanSpeed) {
+        this.mirrorStageScanSpeed = mirrorStageScanSpeed;
+    }
+    
 
     public String getMirrorStageComPort() {
         return mirrorStageComPort;
@@ -420,6 +502,7 @@ public class DeviceManager {
     }
     
     public List<String> getLaserDeviceNames() {
+        if (laserDeviceNames == null) setLaserDeviceNames(new ArrayList<>(Arrays.asList("")));
         return laserDeviceNames;
     }
 

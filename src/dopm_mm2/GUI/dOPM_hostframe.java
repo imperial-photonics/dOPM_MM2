@@ -41,6 +41,8 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private File settingsFolderDir;
     private File dataFolderDir;
     
+    private File defaultConfigFile;
+    
     private boolean saveImgToDisk;
     
     // Device settings object
@@ -66,12 +68,16 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         frame_ = this;
         frame_.setTitle("OPM controller for Micro-manager 2");
         frame_.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
-        deviceSettings = new DeviceManager(core_);
                 
         saveImgToDisk = true;
         baseFolderDir = new File(".");
         dataFolderDir = new File(baseFolderDir, "data");
         settingsFolderDir = new File(baseFolderDir, "settings");
+        
+        defaultConfigFile = new File(".").getAbsoluteFile();
+                
+        deviceSettings = new DeviceManager(core_);
+        deviceSettings.loadDeviceNames(defaultConfigFile);
     }
         
     private Object[] getLaserChannelOptions() throws Exception{
@@ -144,6 +150,10 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         jScrollPane1 = new javax.swing.JScrollPane();
         debugTextArea = new javax.swing.JTextArea();
         jProgressBar = new javax.swing.JProgressBar();
+        jMenuBar1 = new javax.swing.JMenuBar();
+        fileMenu = new javax.swing.JMenu();
+        openDeviceCfgMenuItem = new javax.swing.JMenuItem();
+        editMenu = new javax.swing.JMenu();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -164,7 +174,13 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         });
 
         scanSpeedField.setText("0.01");
+        scanSpeedField.setActionCommand("<Not Set>");
         scanSpeedField.setInputVerifier(new typeVerifierDouble());
+        scanSpeedField.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                scanSpeedFieldActionPerformed(evt);
+            }
+        });
 
         scanIntervalField.setText("1");
         scanIntervalField.setInputVerifier(new typeVerifierDouble());
@@ -187,13 +203,12 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                     .addComponent(scanIntervalLabel)
                     .addComponent(scanLengthLabel))
                 .addGap(18, 18, 18)
-                .addGroup(scanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(scanLengthField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(scanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(scanSettingsPanelLayout.createSequentialGroup()
-                        .addComponent(scanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(maxSpeedCheckBox)))
+                .addGroup(scanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                    .addComponent(scanSpeedField, javax.swing.GroupLayout.DEFAULT_SIZE, 76, Short.MAX_VALUE)
+                    .addComponent(scanIntervalField)
+                    .addComponent(scanLengthField))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(maxSpeedCheckBox)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         scanSettingsPanelLayout.setVerticalGroup(
@@ -264,6 +279,12 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         saveDirectoryLabel.setText("Save directory");
 
+        saveDirectoryField.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                saveDirectoryFieldActionPerformed(evt);
+            }
+        });
+
         browseDirectoryField.setText("Browse");
         browseDirectoryField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -297,7 +318,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                     .addGroup(fileSettingsPanelLayout.createSequentialGroup()
                         .addContainerGap()
                         .addComponent(saveToDiskCheckBox)))
-                .addContainerGap(17, Short.MAX_VALUE))
+                .addContainerGap(37, Short.MAX_VALUE))
         );
         fileSettingsPanelLayout.setVerticalGroup(
             fileSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -342,119 +363,135 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
-        addChannelComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "488" }));
+        addChannelComboBox.setModel(new javax.swing.DefaultComboBoxModel<String>(
+            deviceSettings.getLaserDeviceNames().toArray(new String[0])));
+    addChannelComboBox.addActionListener(new java.awt.event.ActionListener() {
+        public void actionPerformed(java.awt.event.ActionEvent evt) {
+            addChannelComboBoxActionPerformed(evt);
+        }
+    });
 
-        addFilterComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "525" }));
+    addFilterComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "525" }));
 
-        addPowerField.setText("5");
+    addPowerField.setText("5");
 
-        javax.swing.GroupLayout channelSettingsPanelLayout = new javax.swing.GroupLayout(channelSettingsPanel);
-        channelSettingsPanel.setLayout(channelSettingsPanelLayout);
-        channelSettingsPanelLayout.setHorizontalGroup(
-            channelSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(channelSettingsPanelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(channelSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addGroup(channelSettingsPanelLayout.createSequentialGroup()
-                        .addComponent(addChannelComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(addPowerField, javax.swing.GroupLayout.PREFERRED_SIZE, 65, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(addFilterComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(channelScrollPane, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(channelSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(removeRowButton)
-                    .addComponent(addRowButton))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-        channelSettingsPanelLayout.setVerticalGroup(
-            channelSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(channelSettingsPanelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(channelScrollPane, javax.swing.GroupLayout.PREFERRED_SIZE, 108, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(channelSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+    javax.swing.GroupLayout channelSettingsPanelLayout = new javax.swing.GroupLayout(channelSettingsPanel);
+    channelSettingsPanel.setLayout(channelSettingsPanelLayout);
+    channelSettingsPanelLayout.setHorizontalGroup(
+        channelSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        .addGroup(channelSettingsPanelLayout.createSequentialGroup()
+            .addContainerGap()
+            .addGroup(channelSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                .addGroup(channelSettingsPanelLayout.createSequentialGroup()
                     .addComponent(addChannelComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(addFilterComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(addRowButton)
-                    .addComponent(addPowerField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                    .addComponent(addPowerField, javax.swing.GroupLayout.PREFERRED_SIZE, 65, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                    .addComponent(addFilterComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addComponent(channelScrollPane, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+            .addGroup(channelSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addComponent(removeRowButton)
-                .addContainerGap(8, Short.MAX_VALUE))
-        );
+                .addComponent(addRowButton))
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+    );
+    channelSettingsPanelLayout.setVerticalGroup(
+        channelSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        .addGroup(channelSettingsPanelLayout.createSequentialGroup()
+            .addContainerGap()
+            .addComponent(channelScrollPane, javax.swing.GroupLayout.PREFERRED_SIZE, 108, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addGroup(channelSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(addChannelComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(addFilterComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(addRowButton)
+                .addComponent(addPowerField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(removeRowButton)
+            .addContainerGap(8, Short.MAX_VALUE))
+    );
 
-        startButton.setText("Start");
-        startButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                startButtonActionPerformed(evt);
-            }
-        });
+    startButton.setText("Start");
+    startButton.addActionListener(new java.awt.event.ActionListener() {
+        public void actionPerformed(java.awt.event.ActionEvent evt) {
+            startButtonActionPerformed(evt);
+        }
+    });
 
-        stopButton.setText("Stop");
-        stopButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                stopButtonActionPerformed(evt);
-            }
-        });
+    stopButton.setText("Stop");
+    stopButton.addActionListener(new java.awt.event.ActionListener() {
+        public void actionPerformed(java.awt.event.ActionEvent evt) {
+            stopButtonActionPerformed(evt);
+        }
+    });
 
-        debugTextArea.setEditable(false);
-        debugTextArea.setColumns(20);
-        debugTextArea.setRows(5);
-        jScrollPane1.setViewportView(debugTextArea);
+    debugTextArea.setEditable(false);
+    debugTextArea.setColumns(20);
+    debugTextArea.setRows(5);
+    jScrollPane1.setViewportView(debugTextArea);
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(layout.createSequentialGroup()
-                                .addContainerGap()
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                    .addComponent(channelSettingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(cameraSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(scanSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(fileSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                                .addGap(20, 20, 20)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                                    .addComponent(startButton)
-                                    .addComponent(stopButton))
-                                .addGap(18, 18, 18)
-                                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 307, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
-                        .addComponent(jProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, 307, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap())
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(scanSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(cameraSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addComponent(channelSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(fileSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+    fileMenu.setText("File");
+
+    openDeviceCfgMenuItem.setText("Open Device Config");
+    openDeviceCfgMenuItem.addActionListener(new java.awt.event.ActionListener() {
+        public void actionPerformed(java.awt.event.ActionEvent evt) {
+            openDeviceCfgMenuItemActionPerformed(evt);
+        }
+    });
+    fileMenu.add(openDeviceCfgMenuItem);
+
+    jMenuBar1.add(fileMenu);
+
+    editMenu.setText("Edit");
+    jMenuBar1.add(editMenu);
+
+    setJMenuBar(jMenuBar1);
+
+    javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+    getContentPane().setLayout(layout);
+    layout.setHorizontalGroup(
+        layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        .addGroup(layout.createSequentialGroup()
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(layout.createSequentialGroup()
+                    .addContainerGap()
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                         .addComponent(startButton)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(stopButton))
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 69, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, 13, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
-        );
+                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(jProgressBar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jScrollPane1)))
+                .addComponent(fileSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(channelSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(cameraSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(scanSettingsPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addContainerGap())
+    );
+    layout.setVerticalGroup(
+        layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        .addGroup(layout.createSequentialGroup()
+            .addContainerGap()
+            .addComponent(scanSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(cameraSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addGap(18, 18, 18)
+            .addComponent(channelSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(fileSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(layout.createSequentialGroup()
+                    .addComponent(startButton)
+                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                    .addComponent(stopButton))
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 69, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(jProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, 13, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+    );
 
-        pack();
+    pack();
     }// </editor-fold>//GEN-END:initComponents
 
     private void maxSpeedCheckBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_maxSpeedCheckBoxActionPerformed
@@ -464,14 +501,16 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             scanSpeedField.setText(String.format("%.3f", maxScanSpeed));
         } else {
             deviceSettings.setUseMaxScanSpeed(false);
-            double currentScanSpeed = deviceSettings.getScanSpeed();
-            scanSpeedField.setText(String.format("%.3f", currentScanSpeed));
+            // TODO
+            // double currentScanSpeed = deviceSettings.getScanSpeed();
+            // scanSpeedField.setText(String.format("%.3f", currentScanSpeed));
         }
         
     }//GEN-LAST:event_maxSpeedCheckBoxActionPerformed
 
     private void triggerModeComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_triggerModeComboBoxActionPerformed
         deviceSettings.setTriggerMode(triggerModeComboBox.getSelectedIndex());
+        //TODO
         // update max speed
         // updateMaxScanSpeed()
     }//GEN-LAST:event_triggerModeComboBoxActionPerformed
@@ -484,13 +523,14 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         
         if (returnVal == JFileChooser.APPROVE_OPTION){
             baseFolderDir = fc.getSelectedFile();
-            browseDirectoryField.setText(baseFolderDir.getAbsolutePath());
+            saveDirectoryField.setText(baseFolderDir.getAbsolutePath());
             setDataFolderDir(new File(baseFolderDir, "data"));
         }
     }//GEN-LAST:event_browseDirectoryFieldActionPerformed
 
     private void addRowButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addRowButtonActionPerformed
         DefaultTableModel model = (DefaultTableModel) channelTable.getModel();
+        //String laser = addChannelComboBox.getSelectedItem();
         model.addRow(new Object[]{"","",""});
     }//GEN-LAST:event_addRowButtonActionPerformed
 
@@ -534,11 +574,31 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_saveToDiskCheckBoxActionPerformed
 
-    private void updateMaxScanSpeed(){
-        // DeviceManager.getCameraReadoutTime(1);
-        double maxSpeed = 
-                (deviceSettings.getTriggerDistance()/deviceSettings.getCameraReadoutTime());
-    }
+    private void scanSpeedFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_scanSpeedFieldActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_scanSpeedFieldActionPerformed
+
+    private void saveDirectoryFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveDirectoryFieldActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_saveDirectoryFieldActionPerformed
+
+    private void addChannelComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addChannelComboBoxActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_addChannelComboBoxActionPerformed
+
+    private void openDeviceCfgMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openDeviceCfgMenuItemActionPerformed
+        JFileChooser fc = new JFileChooser(baseFolderDir);
+        fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        int returnVal = fc.showDialog(this, "Select");
+        
+        if (returnVal == JFileChooser.APPROVE_OPTION){
+            File cfgFile = fc.getSelectedFile();
+            setDefaultConfigFile(cfgFile);
+            deviceSettings.loadDeviceNames(cfgFile);
+            initComponents();  // reinitialise components, including available devices in dropdown
+        }
+    }//GEN-LAST:event_openDeviceCfgMenuItemActionPerformed
+
     
     class typeVerifierDouble extends InputVerifier {
         @Override
@@ -590,6 +650,15 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     public void setSaveImgToDisk(boolean saveImgToDisk) {
         this.saveImgToDisk = saveImgToDisk;
     }
+
+    public File getDefaultConfigFile() {
+        return defaultConfigFile;
+    }
+
+    public void setDefaultConfigFile(File defaultConfigFile) {
+        this.defaultConfigFile = defaultConfigFile;
+    }
+    
     
     
     public boolean getInterruptFlag() {
@@ -681,12 +750,16 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private javax.swing.JPanel channelSettingsPanel;
     private javax.swing.JTable channelTable;
     private javax.swing.JTextArea debugTextArea;
+    private javax.swing.JMenu editMenu;
     private javax.swing.JTextField exposureTimeField;
     private javax.swing.JLabel exposureTimeLabel;
+    private javax.swing.JMenu fileMenu;
     private javax.swing.JPanel fileSettingsPanel;
+    private javax.swing.JMenuBar jMenuBar1;
     private javax.swing.JProgressBar jProgressBar;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JCheckBox maxSpeedCheckBox;
+    private javax.swing.JMenuItem openDeviceCfgMenuItem;
     private javax.swing.JButton removeRowButton;
     private javax.swing.JTextField saveDirectoryField;
     private javax.swing.JLabel saveDirectoryLabel;
