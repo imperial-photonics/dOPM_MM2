@@ -11,7 +11,6 @@ import org.scijava.plugin.Plugin;
 import org.scijava.plugin.SciJavaPlugin;
 import dopm_mm2.GUI.dOPM_hostframe;
 
-
 /**
  *
  * @author Leo Rowe-Brown and Wenjun Gong
@@ -20,7 +19,7 @@ import dopm_mm2.GUI.dOPM_hostframe;
 @Plugin(type = MenuPlugin.class)
 public class dOPM_MM2 implements MenuPlugin, SciJavaPlugin{
     //Name for the plugin
-    public static final String MENU_NAME = "dOPM MDA";
+    public static final String MENU_NAME = "DOPM MDA";
     private Studio mm_;    
     public static JFrame frame_;
     
@@ -46,7 +45,7 @@ public class dOPM_MM2 implements MenuPlugin, SciJavaPlugin{
     @Override
     public String getName() {
         //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        return("dOPM MDA for MicroManager 2");
+        return("DOPM MDA for MicroManager 2");
     }
 
     @Override

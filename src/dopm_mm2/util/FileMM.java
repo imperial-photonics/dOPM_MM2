@@ -4,7 +4,6 @@
  */
 package dopm_mm2.util;
 
-import dopm_mm2.util.MMStudioInstance;
 import dopm_mm2.Devices.SerialCommands;
 import org.micromanager.data.Datastore;
 import org.micromanager.Studio;

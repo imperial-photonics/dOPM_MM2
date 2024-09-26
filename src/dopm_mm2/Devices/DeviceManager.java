@@ -6,9 +6,12 @@ package dopm_mm2.Devices;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
+import java.io.BufferedOutputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.File;
 import java.io.IOException;
+import java.beans.XMLEncoder;
 import java.util.*;
 import java.util.logging.Logger;
 import java.awt.Rectangle;
@@ -89,7 +92,6 @@ public class DeviceManager {
     private void initVars(){
         triggerModeStrings = new String[]
                 {"External trigger (global exposure)", "External trigger (rolling)", "Untriggered"};
-        scanSpeedSafetyFactor = 0.95;
         z_lim = new int[]{-12000000,1000000};
         laserDeviceNames = new ArrayList(Arrays.asList(""));
         
@@ -132,6 +134,14 @@ public class DeviceManager {
         actualExposureTime = 10.0;
         frameSize = new Rectangle(0, 0, 2304, 2304);  // Initialized to null
         
+    }
+    
+    public void serializeDeviceSettings(String savepath) throws IOException{
+        XMLEncoder e = new XMLEncoder(
+                           new BufferedOutputStream(
+                               new FileOutputStream(savepath)));
+        e.writeObject(this);
+        e.close();
     }
     
     private void loadAllDeviceNames(){
@@ -246,7 +256,7 @@ public class DeviceManager {
     }
     
     public double getCameraReadoutTime(){
-        /* Get frame time for camera based on the exposure time and the camera mode */
+        /* Get frame time in ms for camera based on the exposure time and the camera mode */
         int trigger = getTriggerMode();
         //String triggerSource = core_.getProperty(getCameraDeviceName(), "TRIGGER SOURCE");
         Rectangle roi;
@@ -257,22 +267,23 @@ public class DeviceManager {
             roi = getFrameSize();
         }
         // oneH = 9.74439/1000;  // Orca Flash v4 1H in ms (line horizontal readout time)
-        double oneH = 4.867647*1e-3; // Orca fusion, note that it's halved(ish) wrt flash
+        double oneHMs = 4.867647*1e-3; // Line readout time for Orca fusion, halved(ish) wrt flash
         double Vn = roi.height;
         double Hn = roi.width;
-        double exp = getExposureTime();
-        double exp2 = exp - 3.029411*1e-3;
-        double minReadoutTime = (Vn+1)*oneH;
+        double expMs = getExposureTime();  // ms
+        double exp2Ms = expMs - 3.029411*1e-3;
+        double minReadoutTimeMs = (Vn+1)*oneHMs;
         double readout_time = 0;
         
         switch (trigger){
             case 0:
-                readout_time = ((Vn+1)*oneH+Math.max(0, (exp*1e3-minReadoutTime)))*1e6; // in ms
+                readout_time = ((Vn+1)*oneHMs+Math.max(0, (expMs*minReadoutTimeMs))); // in ms
                 break;
             case 1: // External trigger
-                readout_time = (Vn+Math.ceil(exp2/oneH)+4)*oneH;  // in ms
+                readout_time = (Vn+Math.ceil(exp2Ms/oneHMs)+4)*oneHMs;  // in ms
                 break;
         }
+        deviceManagerLogger.info("Calculated camera readout time as " + readout_time + " ms");
         return readout_time;
     }
     
@@ -298,15 +309,22 @@ public class DeviceManager {
 
     public void setScanSpeedSafetyFactor(double scanSpeedSafetyFactor) {
         this.scanSpeedSafetyFactor = scanSpeedSafetyFactor;
+        updateMaxTriggeredScanSpeed();
     }
 
     public double getMaxTriggeredScanSpeed() {
         return maxTriggeredScanSpeed;
     }
-
+    
+    /** not really used, should be updated by updateMaxTriggeredScanSpeed */
     public void setMaxTriggeredScanSpeed(double maxTriggeredScanSpeed) {
-        this.maxTriggeredScanSpeed = 
-                (getTriggerDistance()/getCameraReadoutTime())*getScanSpeedSafetyFactor();
+        this.maxTriggeredScanSpeed = maxTriggeredScanSpeed;
+        deviceManagerLogger.info("Set maxTriggeredScanSpeed as " + maxTriggeredScanSpeed);
+    }
+
+    public void updateMaxTriggeredScanSpeed() {
+        setMaxTriggeredScanSpeed(
+                (getTriggerDistance()/getCameraReadoutTime())*getScanSpeedSafetyFactor());
     }
     
     
@@ -348,6 +366,8 @@ public class DeviceManager {
 
     public void setTriggerDistance(double triggerDistance) {
         this.triggerDistance = triggerDistance;
+        deviceManagerLogger.info("Set triggerDistance to " + triggerDistance);
+        updateMaxTriggeredScanSpeed();
     }
 
     public int getTriggerMode() {
@@ -356,6 +376,7 @@ public class DeviceManager {
 
     public void setTriggerMode(int triggerMode) {
         this.triggerMode = triggerMode;
+        updateMaxTriggeredScanSpeed();
     }
 
     public boolean getUseMaxScanSpeed() {
@@ -483,6 +504,8 @@ public class DeviceManager {
 
     public void setExposureTime(double exposureTime) {
         this.exposureTime = exposureTime;
+        deviceManagerLogger.info("Set exposureTime to " + exposureTime);
+        updateMaxTriggeredScanSpeed();
     }
 
     public double getActualExposureTime() {
@@ -495,8 +518,10 @@ public class DeviceManager {
 
     public void setFrameSize(Rectangle frameSize) {
         this.frameSize = frameSize;
+        updateMaxTriggeredScanSpeed();
     }
     
+    /* not sure what this is for, i think rolling shutter mode */
     public void setActualExposureTime(double actualExposureTime) {
         this.actualExposureTime = actualExposureTime;
     }

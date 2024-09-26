@@ -79,6 +79,7 @@ public class PIScanRunnable implements Runnable {
     boolean saveImgToDisk;
     
     public PIScanRunnable(dOPM_hostframe frame_ref) {
+        runnableLogger.info("Entered PIScanRunnable runnable");
         frame_ = frame_ref;
         mm_ = dOPM_hostframe.mm_;
         core_ = mm_.getCMMCore();
@@ -136,7 +137,7 @@ public class PIScanRunnable implements Runnable {
     @SuppressWarnings("UnusedAssignment")
     public void run(){
         sc.message("Running Mirror-scan volume acquisition!");
-        
+        runnableLogger.info("Running Mirror-scan volume acquisition!");
         makeDirsAndLog();  // make dirs for saving volume and logs
 
         // this is here in case the runnable is called in a loop, for example
