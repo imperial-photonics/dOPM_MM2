@@ -7,8 +7,7 @@ package dopm_mm2.Runnables;
 import dopm_mm2.Devices.PIStage;
 import dopm_mm2.GUI.dOPM_hostframe;
 import dopm_mm2.Devices.DeviceManager;
-import java.io.BufferedWriter;
-import java.io.FileWriter;
+import dopm_mm2.util.FileMM;
 
 import mmcorej.CMMCore;
 import org.micromanager.ScriptController;
@@ -17,23 +16,21 @@ import org.micromanager.data.Datastore;
 import org.micromanager.display.DisplayManager;
 import mmcorej.TaggedImage;
 import org.micromanager.display.DisplayWindow;
-import org.micromanager.data.Coordinates;
 import org.micromanager.data.Coords;
 import org.micromanager.data.Image;
 
 import java.util.logging.Logger;
-import java.util.logging.Level;
 import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
 
 import java.io.IOException;
 import java.io.File;
-import javax.swing.JOptionPane;
+import org.micromanager.data.SummaryMetadata;
 
 /* stuff for future
-import dopm_mm2.util.FileMM;
-import dopm_mm2.util.MMStudioInstance;
-import dopm_mm2.util.RunnableExceptionHandler;
+import dopmMillim2.util.FileMM;
+import dopmMillim2.util.MMStudioInstance;
+import dopmMillim2.util.RunnableExceptionHandler;
 */
 
 /** Runnable to acquire a single PI-scan-triggered acquisition in RAM
@@ -61,9 +58,9 @@ public class PIScanRunnable implements Runnable {
     private String XYStage;
     private String ZStage;
     
-    private double scanLength;
+    private double scanLengthMillim;
     private double scanSpeed;
-    private double trigDist;
+    private double trigDistMillim;
     private double exposure;
     
     // Set serial command
@@ -91,6 +88,11 @@ public class PIScanRunnable implements Runnable {
         settingsOutDir = frame_.getSettingsFolderDir().getAbsolutePath();
         dataOutDir = frame_.getDataFolderDir().getAbsolutePath();
         baseDir = frame_.getBaseFolderDir().getAbsolutePath();
+        
+        runnableLogger.info("dataOutDir: " + dataOutDir);
+        runnableLogger.info("baseDir: " + baseDir);
+        runnableLogger.info("settingsOutDir: " + settingsOutDir);
+        
         // FileWriter logFile = new FileWriter(settingsOutDir + "log.txt");
         // BufferedWriter runLog = new BufferedWriter(logFile);
                 
@@ -103,11 +105,12 @@ public class PIScanRunnable implements Runnable {
         
         // Set serial command
         port = deviceSettings.getMirrorStageComPort();
+        runnableLogger.info("For PIMag, using port: " + port);
         commandTerminator = "\n"; 
         
-        scanLength = deviceSettings.getScanLength();  // target scan end in um
-        scanSpeed = deviceSettings.getMirrorStageSpeed();  // scan speed in mm/s or um/ms
-        trigDist = deviceSettings.getTriggerDistance();  // trigger distance in um
+        scanLengthMillim = deviceSettings.getMirrorScanLength()*1e-3;  // target scan end in mm
+        scanSpeed = deviceSettings.getMirrorStageScanSpeed();  // scan speed in mm/s or um/ms
+        trigDistMillim = deviceSettings.getTriggerDistance()*1e-3;  // trigger distance in um
         exposure = deviceSettings.getExposureTime();
     }
     
@@ -136,6 +139,8 @@ public class PIScanRunnable implements Runnable {
     @Override
     @SuppressWarnings("UnusedAssignment")
     public void run(){
+        
+        // TODO find what might be causing extra commands sitting in buffer
         sc.message("Running Mirror-scan volume acquisition!");
         runnableLogger.info("Running Mirror-scan volume acquisition!");
         makeDirsAndLog();  // make dirs for saving volume and logs
@@ -153,11 +158,22 @@ public class PIScanRunnable implements Runnable {
             throw new RuntimeException(e.getMessage());
         }
         
+        String currentScanSpeed;
+        
+        // check isn't zero like the PI device adapter likes to do
+        try {
+            currentScanSpeed = core_.getProperty(mirrorStage, "Velocity");
+        } catch(Exception e){
+            throw new RuntimeException(e);
+        }
+        runnableLogger.info("Initial currentScanSpeed " + currentScanSpeed);
+        
+        
         // Setup in um
         double currentXPos;
         double currentYPos;
         double currentZPos;
-        double mirror_pos;
+        double mirror_posMillim;
         try {
             if (!XYStage.equals("")){
                 currentXPos = core_.getXPosition(XYStage);
@@ -165,7 +181,7 @@ public class PIScanRunnable implements Runnable {
             }
             if (!ZStage.equals("")) currentZPos = core_.getPosition(ZStage);
             if (!mirrorStage.equals("")){
-                mirror_pos = core_.getPosition(mirrorStage);
+                mirror_posMillim = core_.getPosition(mirrorStage)*1e-3;
             } else {
                 throw new Exception("No mirror position found, check device is connected");
             }
@@ -173,8 +189,9 @@ public class PIScanRunnable implements Runnable {
             throw new RuntimeException(e.getMessage());
         }
 
-        double startMirrorScan = mirror_pos;  // scan start in um
-        double endMirrorTarget = mirror_pos + scanLength;  // target scan end in um
+        runnableLogger.info("scanLength (mm) is "  + scanLengthMillim);
+        double startMirrorScanMillim = mirror_posMillim;  // scan start in um
+        double endMirrorTargetMillim = mirror_posMillim + scanLengthMillim;  // target scan end in um
 
         // Make sure camera is in internal triggering first before moving stages etc.
         try {
@@ -187,27 +204,32 @@ public class PIScanRunnable implements Runnable {
         
         // based on settings, e.g. trigger mode and exposure, get readout time
         double readoutTimeMs = deviceSettings.getCameraReadoutTime();
+        runnableLogger.info("readout time (ms) " + readoutTimeMs);
 
         double maxFPS = 1000/readoutTimeMs;
 
         // undershoot and overshoot for ramp up and down
-        double undershoot_mm = 5;  // 5 mm
-        double overshoot_mm = 5; 
+        double undershootMillim = 7*1e-3;  // 7 um
+        double overshootMillim = 7*1e-3;
 
         // actual end point of scan is a multiple of trigger distances:
-        double endMirrorScan = trigDist*Math.floor((endMirrorTarget-startMirrorScan)/trigDist);
+        double endMirrorScanMillim = startMirrorScanMillim + 
+                trigDistMillim*Math.floor(
+                (endMirrorTargetMillim-startMirrorScanMillim)/trigDistMillim);
         runnableLogger.info(
-                "Target scan end is " + endMirrorTarget + ", actual scan end is " + endMirrorScan);
+                "Target scan end is " + endMirrorTargetMillim +
+                        ", actual scan end is " + endMirrorScanMillim);
 
-        double effectiveFPS = (1000/(trigDist/scanSpeed));
+        double effectiveFPS = (1/(trigDistMillim/scanSpeed));
 
         // should never happen v, this is controlled in DeviceManager in setters
-        if (readoutTimeMs > trigDist/scanSpeed){
+        if (readoutTimeMs > 1e3*trigDistMillim/scanSpeed){
             runnableLogger.warning(
                     "Trigger intervals too fast for camera readout time, frames will be dropped");
         }
 
-        int nFramesTotal = (int)Math.floor((endMirrorScan-startMirrorScan)/trigDist);  // number of frames
+        int nFramesTotal = (int)Math.floor(
+                (endMirrorScanMillim-startMirrorScanMillim)/trigDistMillim);  // number of frames
 
         sc.message("Now running with hardware triggering");
         runnableLogger.info("Now running with hardware triggering");
@@ -239,17 +261,17 @@ public class PIScanRunnable implements Runnable {
         }
         
         // set start and end points for triggering (we ramp up without triggers outside this range)
-        double startTrigger_mm = (double)(startMirrorScan)/1000;
-        double endTrigger_mm = (double)(endMirrorScan)/1000;
-        double trigDist_mm = (double)trigDist/1000;
         
-        double startScan_mm = startTrigger_mm-undershoot_mm;
-        double endScan_mm = endMirrorScan+overshoot_mm;
+        double startScanMillim = startMirrorScanMillim-undershootMillim;
+        double endScanMillim = endMirrorScanMillim+overshootMillim;
+        
+        runnableLogger.info("Trigger range: " + startMirrorScanMillim + " to " + endMirrorScanMillim);
+        runnableLogger.info("Trigger distance: " + trigDistMillim);
         
         try {
             PIStage.stopPIStage(port);  // need this command so PI stage plays ball
-            PIStage.setPITriggerDistance(port, PIDeviceID, trigDist_mm);
-            PIStage.setPITriggerRange(port, PIDeviceID, new double[]{startTrigger_mm, endTrigger_mm});
+            PIStage.setPITriggerDistance(port, PIDeviceID, trigDistMillim);
+            PIStage.setPITriggerRange(port, PIDeviceID, new double[]{startMirrorScanMillim, endMirrorScanMillim});
         } catch (Exception e){
             runnableLogger.severe("Failed setting PI trigger settings with " + e.getMessage());
             throw new RuntimeException(e.getMessage());
@@ -261,8 +283,10 @@ public class PIScanRunnable implements Runnable {
             core_.setProperty(mirrorStage, "Velocity", 100);
             double currentMirrorScanspeed = 
                     Double.parseDouble(core_.getProperty(mirrorStage, "Velocity"));
+            runnableLogger.info("currentMirrorScanspeed after 100 " + currentMirrorScanspeed);
+            sc.message("currentMirrorScanspeed after 100 " + currentMirrorScanspeed);
 
-            core_.setPosition(mirrorStage, startScan_mm);
+            PIStage.setPositionMillim(mirrorStage, startScanMillim);
 
             core_.setProperty(camName, "Exposure", exposure);
         } catch (Exception e) {
@@ -277,12 +301,13 @@ public class PIScanRunnable implements Runnable {
         double waitTimeout = 10e3;  // ms
         
         try {
-            while(!(PIStage.checkPIMotion(port).equals("0")) && 
+            while(PIStage.checkPIMotion(port) && 
                     (System.currentTimeMillis()-waitStart) < waitTimeout){
-                core_.setProperty(mirrorStage, "Velocity", 100);  // ensure is full speed
-                Thread.sleep(100);
+                // core_.setProperty(mirrorStage, "Velocity", 100);  // ensure is full speed
+                Thread.sleep(200);
+                runnableLogger.info("Still moving, waiting...");
             }
-            if (!control.checkPIMotion(port).equals("0")){
+            if (PIStage.checkPIMotion(port)){
                 throw new Exception("Timed out moving stage to start");
             }
         } catch (InterruptedException ie){
@@ -292,19 +317,35 @@ public class PIScanRunnable implements Runnable {
             runnableLogger.severe(e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
+        try {
+            currentScanSpeed = core_.getProperty(mirrorStage, "Velocity");
+        } catch(Exception e){
+            throw new RuntimeException(e);
+        }
+        runnableLogger.info("Scan speed after check motion " + currentScanSpeed);
+        
 
         try {
+            runnableLogger.info("Setting " + mirrorStage + " velocity to " + scanSpeed);
             core_.setProperty(mirrorStage, "Velocity", scanSpeed);
         } catch (Exception e) {
             runnableLogger.severe("Failed to set scan speed with " + e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
+                
+        try {
+            currentScanSpeed = core_.getProperty(mirrorStage, "Velocity");
+        } catch(Exception e){
+            throw new RuntimeException(e);
+        }
+        runnableLogger.info("Scan speed: " + scanSpeed + 
+                " (from core " + currentScanSpeed + ")");
         
         // do I need this? below
         // core_.setSerialPortCommand(port, "", commandTerminator);
         
         String startScanMsg = "Starting scan: exp_time=" + exposure + "ms, min_z=" + 
-                startMirrorScan + " um, max_z=" + endMirrorScan + " um, scan speed=" + scanSpeed + 
+                startMirrorScanMillim + " mm, max_z=" + endMirrorScanMillim + " mm, scan speed=" + scanSpeed + 
                 "mm/s ("+ nFramesTotal + " frames)"; 
 
         runnableLogger.info(startScanMsg);
@@ -322,9 +363,12 @@ public class PIScanRunnable implements Runnable {
         
         Datastore store;
         if (saveImgToDisk){
-            dataSavePath = (new File(dataOutDir, "MMStack.tiff")).getAbsolutePath();
+            dataSavePath = (new File(dataOutDir, "MMStack")).getAbsolutePath();
             try {
-                store = mm_.data().createMultipageTIFFDatastore(dataSavePath, false, false);
+                store = FileMM.createDatastore(camName, dataSavePath, true);                
+                // these days you need to create metadata with these TIFF datastores...
+                SummaryMetadata metaData = mm_.data().summaryMetadataBuilder().build();
+                store.setSummaryMetadata(metaData);
             } catch (IOException ie){
                 runnableLogger.severe("Failed to create datastore in " + dataSavePath +
                         " with " + ie.getMessage());
@@ -336,7 +380,7 @@ public class PIScanRunnable implements Runnable {
         }
         
         try{
-            store = acquireTriggeredDataset(store, endScan_mm, nFramesTotal);
+            store = acquireTriggeredDataset(store, endScanMillim, nFramesTotal);
         } catch (Exception e){
             runnableLogger.severe("Triggered acquisition failed with " + e.getMessage());
             throw new RuntimeException(e.getMessage());
@@ -376,20 +420,28 @@ public class PIScanRunnable implements Runnable {
         boolean timeout = false;
         double acqTimeStart = System.currentTimeMillis();
     
-        Coords.Builder cb = mm_.data().coordsBuilder().z(0).channel(0).stagePosition(0);
+        // Coords.Builder cb = mm_.data().coordsBuilder().z(0).channel(0).stagePosition(0);
+        Coords.Builder cb = mm_.data().coordsBuilder().z(0);
+
         boolean grabbed = false;
         int nFrames = 0;
 
         double frameTimeTotal = 0;
         int frameTimeout = 2000; // if no frame received for 2s, time out
 
-
+        try {
+            PIStage.setPITriggerEnable(port, 1);
+        } catch (Exception e) {
+            runnableLogger.severe(
+                    "Failed to enable triggering in acq loop with " + e.getMessage());
+            throw new Exception("Failed to enable triggering in acq loop with " + e.getMessage());
+        }
         while (nFrames < nFramesTotal && !timeout){
 
                 // print(pos);
                 // start movement, end at trig dist/2 so trigger goes down again (might not work with start and stop trigger set)
                 //core_.setPosition(PIDevice, max_z+(trig_dist/2));  
-                core_.setPosition(mirrorStage, scanEnd);  
+                PIStage.setPositionMillim(mirrorStage, scanEnd);  
                 double tic=System.currentTimeMillis();
                 double toc=tic;
 
@@ -398,12 +450,16 @@ public class PIScanRunnable implements Runnable {
                         // wait for an image in the circular buffer
                         if (core_.getRemainingImageCount() > 0){
                             TaggedImage img = core_.popNextTaggedImage();	// TaggedImage
+                            runnableLogger.info("Got tagged image:" + nFrames);
                             Image tmp = mm_.data().convertTaggedImage(img);  // Image 
                             // does this copy in memory? inefficient?
                             Image cbImg = tmp.copyAtCoords(cb.z(nFrames).build());
+                            runnableLogger.info("Attempting to put in datastore");
+
                             store.putImage(cbImg);
                             grabbed = true;
                             nFrames++;
+                            runnableLogger.info("Successfully put in datastore");
                         }
                         toc = System.currentTimeMillis(); 
                 }
@@ -414,6 +470,12 @@ public class PIScanRunnable implements Runnable {
                 frameTimeTotal += (toc-tic);
 
         }
+        try {
+            PIStage.setPITriggerEnable(port, 0);
+        } catch (Exception e) {
+            runnableLogger.severe(
+                    "Failed to disable triggering in acq loop with " + e.getMessage());
+        }        
         double acqTimeStop = System.currentTimeMillis() - acqTimeStart; 
         runnableLogger.info("Acq time: " + acqTimeStop + "ms");
         runnableLogger.info("end position: " + core_.getPosition(mirrorStage));
@@ -424,7 +486,7 @@ public class PIScanRunnable implements Runnable {
         
         return store;
     }
-}   
+}
     
     /* These were written to improve repetitive try catch blocks,
        but ive left them out for readability

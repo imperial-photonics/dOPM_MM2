@@ -42,7 +42,7 @@ public class DeviceManager {
     private String[] filtersAcq;
 
     // Trigger settings
-    private double scanLength;  // um
+    private double mirrorScanLength;  // um
     private double triggerDistance;  // um
     private int triggerMode;
     private String[] triggerModeStrings;
@@ -109,9 +109,9 @@ public class DeviceManager {
         filtersAcq = null;
 
         // Trigger settings
-        scanLength = 50.0;  // Initialized to 50 um
+        mirrorScanLength = 50.0;  // Initialized to 50 um
         triggerDistance = 1.0;  // Initialized to 1 um
-        triggerMode = 0;  // Initialized to zero
+        triggerMode = 1;  // Initialized to 1 (external trigger w/ global reset)
         useMaxScanSpeed = false;  // Initialized to false
         scanSpeedSafetyFactor = 0.95;
         maxTriggeredScanSpeed = 0.01;  // safely slow
@@ -130,8 +130,8 @@ public class DeviceManager {
         zStageTravelSpeed = 10.0;
         zStageComPort = "";
 
-        exposureTime = 10.0;
-        actualExposureTime = 10.0;
+        exposureTime = 5.0;
+        actualExposureTime = 5.0;
         frameSize = new Rectangle(0, 0, 2304, 2304);  // Initialized to null
         
     }
@@ -166,25 +166,44 @@ public class DeviceManager {
      */
     public void loadDeviceNames(File configDetailsCsv){
         try (BufferedReader br = new BufferedReader(new FileReader(configDetailsCsv))) {
+
             List<List<String>> configData = new ArrayList<>();
             String line;
+            
             while ((line = br.readLine()) != null) {
                 String[] values = line.split(",");
-                configData.add(Arrays.asList(values));
+                deviceManagerLogger.info("Reading out from CSV " + values[0]);
+                configData.add(new ArrayList(Arrays.asList(values)));
             }
-                        
+            
+            // see parseList method below this method   
             // first column is the label (so use get(1), and that sublist
-            List<String> lasersLine = configData.get(0);
-            // see parseList method below this method
-            setLaserDeviceNames(parseList(lasersLine));  // row 1
-            setCameraDeviceName(core_.getCameraDevice());   // row 2
-            setFilterDeviceName(parseList(configData.get(2)).get(0));  // row 3
-            setXYStageDeviceName(parseList(configData.get(3)).get(0));  // row 4
-            setZStageDeviceName(parseList(configData.get(4)).get(0));  // row 5
-            setMirrorStageDeviceName(parseList(configData.get(5)).get(0));  // row 6
-            setXyStageComPort(parseList(configData.get(6)).get(0));  // row 7
-            setMirrorStageComPort(parseList(configData.get(7)).get(0));  // row 8
-            setZStageComPort(parseList(configData.get(8)).get(0));  // row 9
+            deviceManagerLogger.info("getting laser dev");
+            List<String> lasersLine = parseList(configData.get(0));
+            deviceManagerLogger.info("getting filter dev");
+            String filterName = (parseList(configData.get(2))).get(1);
+            deviceManagerLogger.info("getting xystage dev");
+            String XYStageName = (parseList(configData.get(3))).get(1);
+            deviceManagerLogger.info("getting zstage dev");
+            String ZStageName = (parseList(configData.get(4))).get(1);
+            deviceManagerLogger.info("getting mirorstage dev");
+            String mirrStageName = (parseList(configData.get(5))).get(1);
+            deviceManagerLogger.info("getting XYStageCOM dev");
+            String XYStageCOM = (parseList(configData.get(5))).get(1);
+            deviceManagerLogger.info("getting ZStageCOM dev");
+            String ZStageCOM = (parseList(configData.get(7))).get(1);
+            deviceManagerLogger.info("getting mirrorStageCOM dev");
+            String mirrorStageCOM = (parseList(configData.get(8))).get(1);
+
+            setLaserDeviceNames(lasersLine);
+            setCameraDeviceName(core_.getCameraDevice());
+            setFilterDeviceName(filterName);
+            setXYStageDeviceName(XYStageName);
+            setZStageDeviceName(ZStageName);
+            setMirrorStageDeviceName(mirrStageName);
+            setXyStageComPort(XYStageCOM);
+            setMirrorStageComPort(mirrorStageCOM);
+            setZStageComPort(ZStageCOM);
             
             // now get full list of devices in use
             // start list off with the lasers, then add the rest
@@ -223,10 +242,11 @@ public class DeviceManager {
     private List<String> parseList(List<String> row){
         int rowLength = row.size();
         if(rowLength<=1){  // size 1 indicates the column label only
-            row.add(null);  // add on the value 
-        } else if(rowLength>2){
-            row.subList(1,rowLength);
-        } else {}
+            row.add("");  // add on the value 
+        }
+        row = row.subList(1,rowLength);
+        
+        deviceManagerLogger.info("Devices in config: " + row);
         return row;
     }
     
@@ -244,7 +264,7 @@ public class DeviceManager {
 
             if (!allDevices.contains(deviceNames.get(n))){
                 String errorMsg = String.format("%s does not exist in "
-                        + "MicroManager devices for this config, please check the list of"
+                        + "MicroManager devices for this config, please check the list of "
                         + "devices against the chosen device" , 
                         deviceNames.get(n));
                 deviceManagerLogger.warning(errorMsg);
@@ -277,10 +297,11 @@ public class DeviceManager {
         
         switch (trigger){
             case 0:
-                readout_time = ((Vn+1)*oneHMs+Math.max(0, (expMs*minReadoutTimeMs))); // in ms
+                readout_time = ((Vn+1)*oneHMs+Math.max(0, (expMs*1e3-minReadoutTimeMs))); // in ms
                 break;
             case 1: // External trigger
                 readout_time = (Vn+Math.ceil(exp2Ms/oneHMs)+4)*oneHMs;  // in ms
+                // readout_time = (Vn+Math.ceil(exp2/oneH)+4)*oneH;  // in ms
                 break;
         }
         deviceManagerLogger.info("Calculated camera readout time as " + readout_time + " ms");
@@ -300,7 +321,7 @@ public class DeviceManager {
         } catch (Exception e){
             deviceManagerLogger.warning("No port property found for " + deviceName);
         }
-        return null;
+        return "";
     }
 
     public double getScanSpeedSafetyFactor() {
@@ -352,18 +373,20 @@ public class DeviceManager {
         this.filtersAcq = filters;
     }
 
-    public double getScanLength() {
-        return scanLength;
+    public double getMirrorScanLength() {
+        return mirrorScanLength;
     }
 
-    public void setScanLength(double scanLength) {
-        this.scanLength = scanLength;
+    public void setMirrorScanLength(double mirrorScanLength) {
+        this.mirrorScanLength = mirrorScanLength;
     }
 
     public double getTriggerDistance() {
         return triggerDistance;
     }
 
+    /** Trigger distance setter, in um 
+     * @param triggerDistance trigger distance in um */
     public void setTriggerDistance(double triggerDistance) {
         this.triggerDistance = triggerDistance;
         deviceManagerLogger.info("Set triggerDistance to " + triggerDistance);
@@ -400,9 +423,9 @@ public class DeviceManager {
     }
 
     public void setXyStageName(String xyStageName) {
-        if (xyStageName!=null) {
+        if (!xyStageName.equals("")) {
             this.xyStageName = xyStageName;
-            // get port from property, note that resetting stagename will set COM port to null
+            // get port from property, note that resetting stagename will set COM port to ""
             setXyStageComPort(getPort(xyStageName));
         }
     }
@@ -428,7 +451,7 @@ public class DeviceManager {
     }
 
     public void setXyStageComPort(String xyStageComPort) {
-        if (xyStageComPort!=null) this.xyStageComPort = xyStageComPort;
+        if (!xyStageComPort.equals("")) this.xyStageComPort = xyStageComPort;
     }
 
     public String getMirrorStageName() {
@@ -436,7 +459,7 @@ public class DeviceManager {
     }
 
     public void setMirrorStageName(String mirrorStageName) {
-        if (mirrorStageName!=null){
+        if (!mirrorStageName.equals("")){
             this.mirrorStageName = mirrorStageName;
             setMirrorStageComPort(getPort(mirrorStageName));
         }
@@ -466,7 +489,7 @@ public class DeviceManager {
     }
 
     public void setMirrorStageComPort(String mirrorStageComPort) {
-        if (mirrorStageComPort!=null) this.mirrorStageComPort = mirrorStageComPort;
+        if (!mirrorStageComPort.equals("")) this.mirrorStageComPort = mirrorStageComPort;
     }
     
 
@@ -475,7 +498,7 @@ public class DeviceManager {
     }
 
     public void setzStageName(String zStageName) {
-        if (zStageName!=null){
+        if (!zStageName.equals("")){
             this.zStageName = zStageName;
             setZStageComPort(getPort(zStageName));
         }
@@ -495,7 +518,7 @@ public class DeviceManager {
     }
 
     public void setZStageComPort(String zStageComPort) {
-        if (zStageComPort!=null) this.zStageComPort = zStageComPort;
+        if (!zStageComPort.equals("")) this.zStageComPort = zStageComPort;
     }
 
     public double getExposureTime() {
@@ -527,13 +550,16 @@ public class DeviceManager {
     }
     
     public List<String> getLaserDeviceNames() {
-        if (laserDeviceNames == null) setLaserDeviceNames(new ArrayList<>(Arrays.asList("")));
+        if (!laserDeviceNames.equals("")) setLaserDeviceNames(new ArrayList<>(Arrays.asList("")));
         return laserDeviceNames;
     }
 
     
     public void setLaserDeviceNames(List<String> laserDeviceNames) { 
-        if (checkInDeviceList(laserDeviceNames)) this.laserDeviceNames = laserDeviceNames;
+        if (checkInDeviceList(laserDeviceNames)){
+            this.laserDeviceNames = laserDeviceNames;
+            deviceManagerLogger.info("Laser set to" + laserDeviceNames);
+        }
     }
 
     public String getFilterDeviceName() {
@@ -541,7 +567,11 @@ public class DeviceManager {
     }
 
     public void setFilterDeviceName(String filterDeviceName) {
-        if (checkInDeviceList(filterDeviceName)) this.filterDeviceName = filterDeviceName;
+        if (checkInDeviceList(filterDeviceName)){
+            this.filterDeviceName = filterDeviceName;
+            deviceManagerLogger.info("Filter device set to" + filterDeviceName);
+
+        }
         
     }
 
@@ -550,7 +580,11 @@ public class DeviceManager {
     }
 
     public void setXYStageDeviceName(String XYStageDeviceName) {
-        if (checkInDeviceList(XYStageDeviceName)) this.XYStageDeviceName = XYStageDeviceName;
+        if (checkInDeviceList(XYStageDeviceName)) {
+            this.XYStageDeviceName = XYStageDeviceName;
+            deviceManagerLogger.info("XYStage device set to" + XYStageDeviceName);
+
+        }
     }
 
     public String getZStageDeviceName() {
@@ -558,7 +592,10 @@ public class DeviceManager {
     }
 
     public void setZStageDeviceName(String ZStageDeviceName) {
-        if (checkInDeviceList(ZStageDeviceName)) this.ZStageDeviceName = ZStageDeviceName;
+        if (checkInDeviceList(ZStageDeviceName)){
+            this.ZStageDeviceName = ZStageDeviceName;
+            deviceManagerLogger.info("ZStage device set to" + ZStageDeviceName);
+        }
     }
 
     public String getMirrorStageDeviceName() {
@@ -566,8 +603,10 @@ public class DeviceManager {
     }
 
     public void setMirrorStageDeviceName(String MirrorStageDeviceName) {
-        if (checkInDeviceList(MirrorStageDeviceName)) 
+        if (checkInDeviceList(MirrorStageDeviceName)) {
             this.MirrorStageDeviceName = MirrorStageDeviceName;
+            deviceManagerLogger.info("Mirror stage device set to" + MirrorStageDeviceName);
+        }
     }
 
     public String getCameraDeviceName() {
@@ -575,7 +614,10 @@ public class DeviceManager {
     }
 
     public void setCameraDeviceName(String CameraDeviceName) {
-        if (checkInDeviceList(CameraDeviceName)) this.CameraDeviceName = CameraDeviceName;
+        if (checkInDeviceList(CameraDeviceName)){
+            this.CameraDeviceName = CameraDeviceName;
+            deviceManagerLogger.info("Camera set to" + CameraDeviceName);
+        }
     }
 
     public StrVector getDeviceList() {

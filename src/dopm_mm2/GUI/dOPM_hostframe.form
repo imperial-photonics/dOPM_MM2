@@ -9,10 +9,13 @@
             <Property name="text" type="java.lang.String" value="File"/>
           </Properties>
           <SubComponents>
-            <MenuItem class="javax.swing.JMenuItem" name="jMenuItem1">
+            <MenuItem class="javax.swing.JMenuItem" name="openDeviceConfigMenuItem">
               <Properties>
                 <Property name="text" type="java.lang.String" value="Open Device Config"/>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="openDeviceConfigMenuItemActionPerformed"/>
+              </Events>
             </MenuItem>
           </SubComponents>
         </Menu>
@@ -163,7 +166,9 @@
         </Component>
         <Component class="javax.swing.JTextField" name="exposureTimeField">
           <Properties>
-            <Property name="text" type="java.lang.String" value="10"/>
+            <Property name="text" type="java.lang.String" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+              <Connection code="String.format(&quot;%.1f&quot;, deviceSettings.getExposureTime())" type="code"/>
+            </Property>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="exposureTimeFieldActionPerformed"/>
@@ -329,7 +334,7 @@
             <Component class="javax.swing.JTable" name="channelTable">
               <Properties>
                 <Property name="model" type="javax.swing.table.TableModel" editor="org.netbeans.modules.form.editors2.TableModelEditor">
-                  <Table columnCount="3" rowCount="0">
+                  <Table columnCount="3" rowCount="1">
                     <Column editable="true" title="Laser " type="java.lang.Object"/>
                     <Column editable="true" title="Power" type="java.lang.Object"/>
                     <Column editable="true" title="Filter" type="java.lang.Object"/>
@@ -479,13 +484,13 @@
                       </Group>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="1" max="-2" attributes="0">
-                          <Component id="scanSpeedField" pref="76" max="32767" attributes="0"/>
+                          <Component id="scanSpeedField" max="32767" attributes="0"/>
                           <Component id="scanIntervalField" alignment="1" max="32767" attributes="0"/>
                           <Component id="scanLengthField" max="32767" attributes="0"/>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="maxSpeedCheckBox" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace pref="157" max="32767" attributes="0"/>
+                      <EmptySpace pref="150" max="32767" attributes="0"/>
                   </Group>
               </Group>
             </DimensionLayout>
@@ -531,7 +536,9 @@
             </Component>
             <Component class="javax.swing.JTextField" name="scanLengthField">
               <Properties>
-                <Property name="text" type="java.lang.String" value="100"/>
+                <Property name="text" type="java.lang.String" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                  <Connection code="String.format(&quot;%.1f&quot;, deviceSettings.getMirrorScanLength())" type="code"/>
+                </Property>
                 <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                   <Connection code="new typeVerifierDouble()" type="code"/>
                 </Property>
@@ -542,7 +549,9 @@
             </Component>
             <Component class="javax.swing.JTextField" name="scanSpeedField">
               <Properties>
-                <Property name="text" type="java.lang.String" value="0.01"/>
+                <Property name="text" type="java.lang.String" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                  <Connection code="String.format(&quot;%.4f&quot;, deviceSettings.getMirrorStageScanSpeed())" type="code"/>
+                </Property>
                 <Property name="actionCommand" type="java.lang.String" value="&lt;Not Set&gt;"/>
                 <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                   <Connection code="new typeVerifierDouble()" type="code"/>
@@ -554,7 +563,9 @@
             </Component>
             <Component class="javax.swing.JTextField" name="scanIntervalField">
               <Properties>
-                <Property name="text" type="java.lang.String" value="1"/>
+                <Property name="text" type="java.lang.String" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                  <Connection code="String.format(&quot;%.2f&quot;, deviceSettings.getTriggerDistance())" type="code"/>
+                </Property>
                 <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                   <Connection code="new typeVerifierDouble()" type="code"/>
                 </Property>

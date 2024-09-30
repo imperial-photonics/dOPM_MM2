@@ -8,7 +8,7 @@
 <!-- You can turn off the Compile on Save (or Deploy on Save) setting -->
 <!-- in the project's Project Properties dialog box.-->
 <project name="dOPM_MM2" default="default" basedir=".">
-    <property name="pluginsDir"  location="C:\Program Files\Micro-Manager-2.0\mmplugins" />
+    <property name="pluginsDir"  location="C:\Program Files\Micro-Manager-2.0_20240801\mmplugins" />
     <description>Builds, tests, and runs the project dOPM_MM2.</description>
     <import file="nbproject/build-impl.xml"/>
         <target name="-post-jar">

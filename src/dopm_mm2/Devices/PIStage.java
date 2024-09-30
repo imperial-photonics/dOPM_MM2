@@ -33,6 +33,23 @@ public class PIStage {
 
     /* The following commands control stage movement with retry (TODO) ? */
     
+    /** Slightly modified setPosition for PIMag to take positions in mm 
+     * (and convert to um)
+     * @param device, PIMag device name in micro-manager
+     * @param position, position to move stage to 
+    */
+    public static void setPositionMillim(String device, double position){
+        try {
+            MMStudioInstance.getCore().setPosition(device, position*1e3);
+            PIStageLogger.info(String.format(
+                    "Set %s position to %.4f mm",device, position));
+        } catch (Exception e){
+            PIStageLogger.severe(String.format(
+                    "Failed to set %s to position %.4f mm with: %s",
+                    device, position, e.getMessage()));
+            throw new RuntimeException(e);
+        }
+    }
     
     
     /*
@@ -43,25 +60,74 @@ public class PIStage {
     Each throw PISerialExceptions under failure
      */
     
-    public static String checkPIMotion(String port) throws Exception{
+    /** check if PI stage is on target and not moving with SRG command which 
+     * returns hex strings. A bit overkill but the only way.
+     * @param port COM port
+     * @ return true if stage is ready
+     */
+    public static boolean checkPIMotion(String port) throws Exception{
+        return checkPIMotion(port, 1, 1);
+    }
+    
+    public static boolean checkPIMotion(String port, int device, int axis) throws Exception{
+        String msg = String.format("SRG? %d %d", device, axis);
+        String ansHex;
+        String err;
+        try {
+            MMStudioInstance.getCore().setSerialPortCommand(port, msg, "\n");
+            ansHex = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
+            MMStudioInstance.getCore().setSerialPortCommand(port, "ERR?", "\n");
+            err = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
+            if (!err.equals("0")){
+                PIStageLogger.severe(String.format("Error %s when checking move status with SRG", err));
+                throw new Exception("SRG command: ERR? returned non-zero error " + err);
+            } 
+            // hex parsing
+            String hexStr = (ansHex.split("="))[1];
+            hexStr = hexStr.trim();
+            hexStr = hexStr.replaceFirst("0x", "");
+            String binaryString = 
+                    Integer.toBinaryString(Integer.parseInt(hexStr, 16));
+
+            // - from docs: 15-on target, 13-in motion (counting from zero, right to left)
+            // check both: why not
+            boolean onTarget = binaryString.charAt(0) == '1';
+            boolean moving = binaryString.charAt(2) == '1';
+            
+            return (!onTarget | moving);
+            
+        } catch (Exception e){
+            throw new Exception("Error checking stage motion with SRG with " + e.getMessage());
+        }
+        
+        // this here is old code, on ERR the command is not recognized, so it's 
+        // clearly not right. This is a bit of head-scratcher so I'm just going 
+        // with SRG and parsing those hex strings...
         /*    
         Returns: movement stats (0 - motion of all axes complete) 
         #5 command is used in GCS ASCII API to indicate that the decimal 5 is being sent directly
         -- not the ASCII character, but for some reason the # char does not seem to be parsed 
         properly when I use micromanager's setSerialPortCommand so I convert decimal 5 into an ASCII
-        */
 
         int msgInt = 5;
-        String ans = "";
+        String ans;
+        String err;
         String msg = String.valueOf((char)5);
         try {
             MMStudioInstance.getCore().setSerialPortCommand(port, msg, "\n");
             ans = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
+            MMStudioInstance.getCore().setSerialPortCommand(port, "ERR?", "\n");
+            err = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
+            if (!err.equals("0")){
+                PIStageLogger.severe(String.format("Error %s when checking move status with #5", err));
+            } 
             return ans;
         } catch (Exception e){
             throw new Exception("Error checking stage motion with #5 with " + e.getMessage());
         }
+        */
     }
+        
     
     public static void setupPITriggering(String port, int device) throws Exception {
         /* Initialise the PI stage basic trigger output settings */
@@ -154,8 +220,8 @@ public class PIStage {
 
         // min incremental motion is 0.02um (0.00002mm, 1e-5)
         String triggerDistanceStr = String.format("%.5f", triggerDistance);
-        String msg = String.format("CTO %1$d 6 %2$s", device, triggerDistanceStr);
-        String queryMsg = String.format("CTO? %1$d 6", device);
+        String msg = String.format("CTO %1$d 1 %2$s", device, triggerDistanceStr);
+        String queryMsg = String.format("CTO? %1$d 1", device);
         double expectedValue = triggerDistance;
         try {
             setAndCheckSerial(port, msg, queryMsg, expectedValue);
@@ -241,7 +307,7 @@ public class PIStage {
                 // check for errors
                 core.setSerialPortCommand(port, "ERR?", "\n");
                 ERR = core.getSerialPortAnswer(port, "\n");
-                if (!ERR.equals("10")) {
+                if (!ERR.equals("0")) {
                     String errMsg = String.format(
                             "Error code %1$s from ERR? after sending command %2$s", ERR, msg);
                     PIStageLogger.severe(errMsg);

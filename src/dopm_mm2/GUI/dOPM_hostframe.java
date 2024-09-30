@@ -5,10 +5,6 @@
 package dopm_mm2.GUI;
 
 import java.util.logging.Logger;
-import java.io.*;
-import java.util.*;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import org.micromanager.Studio;
@@ -17,7 +13,7 @@ import org.micromanager.ScriptController;
 import org.micromanager.data.Datastore;
 import dopm_mm2.Devices.DeviceManager;
 import dopm_mm2.Runnables.PIScanRunnable;
-import dopm_mm2.Runnables.snapTestRunnable;
+import dopm_mm2.Runnables.PITriggerTest;
 import dopm_mm2.util.MMStudioInstance;
 import java.io.File;
 
@@ -32,6 +28,10 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     public CMMCore core_ = null;
     private static final Logger dOPM_hostframeLogger = 
             Logger.getLogger(dOPM_hostframe.class.getName());
+    
+    // TODO: save this to a file
+    private static final Logger rootLogger = 
+        Logger.getLogger("");
     
     public Thread testPIVolumeThread;
     private boolean interruptFlag;
@@ -60,9 +60,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         initComponents();
     }
 
-    public dOPM_hostframe(Studio mm) {
-        initComponents();
-        
+    public dOPM_hostframe(Studio mm) {        
         // singleton which contains studio and core so i dont have to inject every time
         MMStudioInstance.initialize(mm);
         mm_ = mm;
@@ -72,17 +70,21 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         frame_.setTitle("dOPM controller for Micro-manager 2");
         frame_.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
                 
-        saveImgToDisk = true;
-        baseFolderDir = new File(".");
+        saveImgToDisk = false;
+        baseFolderDir = new File("C:\\Users\\CRICKOPMuser\\Documents\\Leo\\micromanager");
         dataFolderDir = new File(baseFolderDir, "data");
         settingsFolderDir = new File(baseFolderDir, "settings");
         
-        defaultConfigFile = new File(".").getAbsoluteFile();
+        defaultConfigFile = new File("C:\\Users\\CRICKOPMuser\\Documents\\" + 
+                "Leo\\micromanager\\dopm_plugin\\deviceConfig.csv").getAbsoluteFile();
                 
         deviceSettings = new DeviceManager(core_);
         deviceSettings.loadDeviceNames(defaultConfigFile);
         
         runnableIsRunning = false;
+        
+        initComponents();
+
     }
         
     private Object[] getLaserChannelOptions() throws Exception{
@@ -163,7 +165,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         snapTestButton = new javax.swing.JButton();
         jMenuBar1 = new javax.swing.JMenuBar();
         jMenu1 = new javax.swing.JMenu();
-        jMenuItem1 = new javax.swing.JMenuItem();
+        openDeviceConfigMenuItem = new javax.swing.JMenuItem();
         jMenu2 = new javax.swing.JMenu();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
@@ -174,7 +176,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         triggerModeLabel.setText("Trigger mode");
 
-        exposureTimeField.setText("10");
+        exposureTimeField.setText(String.format("%.1f", deviceSettings.getExposureTime()));
         exposureTimeField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 exposureTimeFieldActionPerformed(evt);
@@ -279,7 +281,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         channelTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-
+                {null, null, null}
             },
             new String [] {
                 "Laser ", "Power", "Filter"
@@ -378,7 +380,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         scanIntervalLabel.setText("Scan interval (µm)");
 
-        scanLengthField.setText("100");
+        scanLengthField.setText(String.format("%.1f", deviceSettings.getMirrorScanLength()));
         scanLengthField.setInputVerifier(new typeVerifierDouble());
         scanLengthField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -386,7 +388,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
-        scanSpeedField.setText("0.01");
+        scanSpeedField.setText(String.format("%.4f", deviceSettings.getMirrorStageScanSpeed()));
         scanSpeedField.setActionCommand("<Not Set>");
         scanSpeedField.setInputVerifier(new typeVerifierDouble());
         scanSpeedField.addActionListener(new java.awt.event.ActionListener() {
@@ -395,7 +397,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
-        scanIntervalField.setText("1");
+        scanIntervalField.setText(String.format("%.2f", deviceSettings.getTriggerDistance()));
         scanIntervalField.setInputVerifier(new typeVerifierDouble());
         scanIntervalField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -422,12 +424,12 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                     .addComponent(scanLengthLabel))
                 .addGap(18, 18, 18)
                 .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                    .addComponent(scanSpeedField, javax.swing.GroupLayout.DEFAULT_SIZE, 76, Short.MAX_VALUE)
+                    .addComponent(scanSpeedField)
                     .addComponent(scanIntervalField)
                     .addComponent(scanLengthField))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(maxSpeedCheckBox)
-                .addContainerGap(157, Short.MAX_VALUE))
+                .addContainerGap(150, Short.MAX_VALUE))
         );
         mirrorScanSettingsPanelLayout.setVerticalGroup(
             mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -472,8 +474,13 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         jMenu1.setText("File");
 
-        jMenuItem1.setText("Open Device Config");
-        jMenu1.add(jMenuItem1);
+        openDeviceConfigMenuItem.setText("Open Device Config");
+        openDeviceConfigMenuItem.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                openDeviceConfigMenuItemActionPerformed(evt);
+            }
+        });
+        jMenu1.add(openDeviceConfigMenuItem);
 
         jMenuBar1.add(jMenu1);
 
@@ -540,10 +547,10 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private void updateScanSpeedField(){
         if (deviceSettings.getUseMaxScanSpeed()){
             scanSpeedField.setText(
-                    String.format("%.3f", deviceSettings.getMaxTriggeredScanSpeed()));
+                    String.format("%.4f", deviceSettings.getMaxTriggeredScanSpeed()));
         } else {
             scanSpeedField.setText(
-                    String.format("%.3f", deviceSettings.getMirrorStageScanSpeed())); 
+                    String.format("%.4f", deviceSettings.getMirrorStageScanSpeed())); 
         }
     }
     
@@ -573,7 +580,6 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_triggerModeComboBoxActionPerformed
 
     private void browseDirectoryFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_browseDirectoryFieldActionPerformed
-        // TODO add your handling code here:
         JFileChooser fc = new JFileChooser(baseFolderDir);
         fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         int returnVal = fc.showDialog(this, "Select");
@@ -587,12 +593,20 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
     private void addRowButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addRowButtonActionPerformed
         DefaultTableModel model = (DefaultTableModel) channelTable.getModel();
-        //String laser = addChannelComboBox.getSelectedItem();
+        
+        // Object laser = addChannelComboBox.getSelectedItem();
+        
         String laserToAdd = addChannelComboBox.getSelectedItem().toString();
         String powerToAdd = addPowerField.getText();
         String filterToAdd = addFilterComboBox.getSelectedItem().toString();
-
-        model.addRow(new Object[]{laserToAdd,powerToAdd,filterToAdd});
+        model.addRow(new Object[]{"","",""});
+        /*
+        try {
+            model.addRow(new Object[]{"test1","test2","test3"});
+            // model.addRow(new Object[]{laserToAdd,powerToAdd,filterToAdd});
+        } catch (Exception e){
+            rootLogger.severe("Couldn't add row with: " + e.getMessage());
+        }*/
     }//GEN-LAST:event_addRowButtonActionPerformed
 
     private void removeRowButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeRowButtonActionPerformed
@@ -609,7 +623,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private void scanLengthFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_scanLengthFieldActionPerformed
         String scanLengthStr = scanIntervalField.getText();
         double scanLength = Double.parseDouble(scanLengthStr);
-        deviceSettings.setScanLength(scanLength);
+        deviceSettings.setMirrorScanLength(scanLength);
     }//GEN-LAST:event_scanLengthFieldActionPerformed
 
     private void startButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_startButtonActionPerformed
@@ -641,10 +655,13 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private void scanSpeedFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_scanSpeedFieldActionPerformed
         double scanSpeed = Double.parseDouble(scanSpeedField.getText());
         // TODO replace with input verifier
-        if (scanSpeed > deviceSettings.getMaxTriggeredScanSpeed())
-            deviceSettings.setMirrorStageScanSpeed(scanSpeed);
+        double maxTrigScanSpeed = deviceSettings.getMaxTriggeredScanSpeed();
+        if (scanSpeed > maxTrigScanSpeed){
+            deviceSettings.setMirrorStageScanSpeed(maxTrigScanSpeed);
+            scanSpeedField.setText(String.format("%.4f", maxTrigScanSpeed));
+        }             
         else
-            scanSpeedField.setText(String.format("%.4f", deviceSettings.getMaxTriggeredScanSpeed()));
+            updateScanSpeedField();
     }//GEN-LAST:event_scanSpeedFieldActionPerformed
 
     private void saveDirectoryFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveDirectoryFieldActionPerformed
@@ -669,10 +686,22 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_scanIntervalFieldActionPerformed
 
     private void snapTestButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_snapTestButtonActionPerformed
-        Runnable testRunnable = new snapTestRunnable(core_, mm_);
+        Runnable testRunnable = new PITriggerTest(core_, mm_);
         Thread testThread = new Thread(testRunnable);
         testThread.start();
     }//GEN-LAST:event_snapTestButtonActionPerformed
+
+    private void openDeviceConfigMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openDeviceConfigMenuItemActionPerformed
+        JFileChooser fc = new JFileChooser(baseFolderDir);
+        fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        int returnVal = fc.showDialog(this, "Select");
+
+        if (returnVal == JFileChooser.APPROVE_OPTION){
+            File configFile = fc.getSelectedFile();
+            setDefaultConfigFile(configFile);
+            deviceSettings.loadDeviceNames(configFile);
+        }   
+    }//GEN-LAST:event_openDeviceConfigMenuItemActionPerformed
 
     
     
@@ -742,7 +771,6 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     public void setRunnableIsRunning(boolean runnableIsRunning) {
         this.runnableIsRunning = runnableIsRunning;
     }
-    
     
     
     public boolean getInterruptFlag() {
@@ -840,12 +868,12 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private javax.swing.JMenu jMenu1;
     private javax.swing.JMenu jMenu2;
     private javax.swing.JMenuBar jMenuBar1;
-    private javax.swing.JMenuItem jMenuItem1;
     private javax.swing.JProgressBar jProgressBar;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JCheckBox maxSpeedCheckBox;
     private javax.swing.JPanel mirrorScanSettingsPanel;
+    private javax.swing.JMenuItem openDeviceConfigMenuItem;
     private javax.swing.JButton removeRowButton;
     private javax.swing.JTextField saveDirectoryField;
     private javax.swing.JLabel saveDirectoryLabel;
