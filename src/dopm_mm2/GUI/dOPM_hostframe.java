@@ -16,6 +16,11 @@ import dopm_mm2.Runnables.PIScanRunnable;
 import dopm_mm2.Runnables.PITriggerTest;
 import dopm_mm2.util.MMStudioInstance;
 import java.io.File;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.logging.FileHandler;
+import java.util.logging.SimpleFormatter;
 
 /**
  *
@@ -57,6 +62,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private ScriptController sc;
     
     public dOPM_hostframe() {
+        makeDirsAndLog();
         initComponents();
     }
 
@@ -76,15 +82,47 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         settingsFolderDir = new File(baseFolderDir, "settings");
         
         defaultConfigFile = new File("C:\\Users\\CRICKOPMuser\\Documents\\" + 
-                "Leo\\micromanager\\dopm_plugin\\deviceConfig.csv").getAbsoluteFile();
+                "Leo\\micromanager\\dopm_plugin\\deviceConfigDaqTest.csv").getAbsoluteFile();
                 
         deviceSettings = new DeviceManager(core_);
         deviceSettings.loadDeviceNames(defaultConfigFile);
         
         runnableIsRunning = false;
         
+        makeDirsAndLog();
         initComponents();
+        
+        dOPM_hostframeLogger.info("Initialised dOPM_MM2 hostframe");
 
+    }
+    
+    private int makeDirsAndLog(){
+        try { 
+            LocalDateTime date = LocalDateTime.now(); // Create a date object
+            DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern(
+                    "yyyyMMddhhmmss");
+
+            String formattedDate = date.format(myFormatObj);
+            
+            String appdata = System.getenv("APPDATA");
+            File dopm_mm2Logdir = new File(appdata, "../Local/Micro-Manager/dopmLogs");
+            dopm_mm2Logdir.mkdir();
+            File dopm_mm2Logfile = new File(dopm_mm2Logdir, String.format(
+                    "dopmRootLog%s.txt", formattedDate));
+            
+            FileHandler fh = new FileHandler(dopm_mm2Logfile.getAbsolutePath());
+ 
+            rootLogger.addHandler(fh);
+            SimpleFormatter formatter = new SimpleFormatter();  
+            fh.setFormatter(formatter);  
+        } catch (IOException ioe){
+            rootLogger.severe("Failed to create log with " + ioe.getMessage());
+            return 1;
+        } catch (SecurityException se){
+            rootLogger.severe("Failed to create log file " + se.getMessage());
+            return 1;
+        }
+        return 0;
     }
         
     private Object[] getLaserChannelOptions() throws Exception{
@@ -277,7 +315,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 .addContainerGap())
         );
 
-        channelSettingsPanel.setBorder(javax.swing.BorderFactory.createTitledBorder(null, "Channel sequencer", javax.swing.border.TitledBorder.CENTER, javax.swing.border.TitledBorder.DEFAULT_POSITION));
+        channelSettingsPanel.setBorder(javax.swing.BorderFactory.createTitledBorder(null, "Acquisition sequencer", javax.swing.border.TitledBorder.CENTER, javax.swing.border.TitledBorder.DEFAULT_POSITION));
 
         channelTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -456,7 +494,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         xyStageScanSettingsPanel.setLayout(xyStageScanSettingsPanelLayout);
         xyStageScanSettingsPanelLayout.setHorizontalGroup(
             xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 428, Short.MAX_VALUE)
+            .addGap(0, 430, Short.MAX_VALUE)
         );
         xyStageScanSettingsPanelLayout.setVerticalGroup(
             xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -537,6 +575,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
+        channelSettingsPanel.getAccessibleContext().setAccessibleName("Acquisition sequencer");
         jTabbedPane1.getAccessibleContext().setAccessibleName("Mirror scan");
         jTabbedPane1.getAccessibleContext().setAccessibleDescription("");
 
@@ -594,19 +633,25 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private void addRowButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addRowButtonActionPerformed
         DefaultTableModel model = (DefaultTableModel) channelTable.getModel();
         
-        // Object laser = addChannelComboBox.getSelectedItem();
-        
-        String laserToAdd = addChannelComboBox.getSelectedItem().toString();
-        String powerToAdd = addPowerField.getText();
-        String filterToAdd = addFilterComboBox.getSelectedItem().toString();
-        model.addRow(new Object[]{"","",""});
-        /*
         try {
+
+        // Object laser = addChannelComboBox.getSelectedItem();
+        // will throw nullptr if these are empty
+            if (addChannelComboBox.getItemCount()==0 || 
+                    addFilterComboBox.getItemCount() ==0 ){
+                throw new ArrayIndexOutOfBoundsException(
+                        "Laser channel and or filter list is empty, add these to "
+                                + "the csv config (File>Open Device Config)");
+            }
+            
+            String laserToAdd = addChannelComboBox.getSelectedItem().toString();
+            String powerToAdd = addPowerField.getText();
+            String filterToAdd = addFilterComboBox.getSelectedItem().toString();            
             model.addRow(new Object[]{"test1","test2","test3"});
             // model.addRow(new Object[]{laserToAdd,powerToAdd,filterToAdd});
         } catch (Exception e){
-            rootLogger.severe("Couldn't add row with: " + e.getMessage());
-        }*/
+            dOPM_hostframeLogger.severe("Couldn't add row with: " + e.getMessage());
+        }
     }//GEN-LAST:event_addRowButtonActionPerformed
 
     private void removeRowButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeRowButtonActionPerformed
@@ -621,8 +666,9 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_stopButtonActionPerformed
 
     private void scanLengthFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_scanLengthFieldActionPerformed
-        String scanLengthStr = scanIntervalField.getText();
+        String scanLengthStr = scanLengthField.getText();
         double scanLength = Double.parseDouble(scanLengthStr);
+        dOPM_hostframeLogger.info("parsing scan length as " + scanLengthStr);
         deviceSettings.setMirrorScanLength(scanLength);
     }//GEN-LAST:event_scanLengthFieldActionPerformed
 

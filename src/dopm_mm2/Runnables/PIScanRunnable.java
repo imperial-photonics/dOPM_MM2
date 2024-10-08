@@ -25,6 +25,8 @@ import java.util.logging.SimpleFormatter;
 
 import java.io.IOException;
 import java.io.File;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import org.micromanager.data.SummaryMetadata;
 
 /* stuff for future
@@ -112,6 +114,13 @@ public class PIScanRunnable implements Runnable {
         scanSpeed = deviceSettings.getMirrorStageScanSpeed();  // scan speed in mm/s or um/ms
         trigDistMillim = deviceSettings.getTriggerDistance()*1e-3;  // trigger distance in um
         exposure = deviceSettings.getExposureTime();
+        
+        runnableLogger.info(String.format("Got device settings from hostframe: "
+                + "scan length[mm] %.5f; "
+                + "scanSspeed[mm/s] %.5f; "
+                + "trigger distance[mm] %.5f;"
+                + "exposure time[ms] %.5f", 
+                scanLengthMillim, scanSpeed, trigDistMillim, exposure));
     }
     
     public int makeDirsAndLog(){
@@ -120,8 +129,16 @@ public class PIScanRunnable implements Runnable {
             new File(settingsOutDir).mkdirs();
             new File(dataOutDir).mkdirs();
             
+            LocalDateTime date = LocalDateTime.now(); // Create a date object
+            DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern(
+                    "yyyyMMddhhmmss");
+
+            String formattedDate = date.format(myFormatObj);
+            
             // just print log for this runnable for debugging directly
-            fh = new FileHandler(new File(settingsOutDir, "log.txt").getAbsolutePath());
+            FileHandler fh = new FileHandler(new File(
+                    settingsOutDir, 
+                    String.format("acqLog%s.txt", formattedDate)).toString());
  
             runnableLogger.addHandler(fh);
             SimpleFormatter formatter = new SimpleFormatter();  
@@ -143,6 +160,9 @@ public class PIScanRunnable implements Runnable {
         // TODO find what might be causing extra commands sitting in buffer
         sc.message("Running Mirror-scan volume acquisition!");
         runnableLogger.info("Running Mirror-scan volume acquisition!");
+        double theVeryBeginning = System.currentTimeMillis();
+
+        
         makeDirsAndLog();  // make dirs for saving volume and logs
 
         // this is here in case the runnable is called in a loop, for example
@@ -221,6 +241,8 @@ public class PIScanRunnable implements Runnable {
                         ", actual scan end is " + endMirrorScanMillim);
 
         double effectiveFPS = (1/(trigDistMillim/scanSpeed));
+        runnableLogger.info(
+                    "Effective FPS: " + effectiveFPS);
 
         // should never happen v, this is controlled in DeviceManager in setters
         if (readoutTimeMs > 1e3*trigDistMillim/scanSpeed){
@@ -250,7 +272,11 @@ public class PIScanRunnable implements Runnable {
         try{
             core_.setProperty(camName, "TriggerPolarity","POSITIVE");
             core_.setProperty(camName, "TRIGGER SOURCE","EXTERNAL");
-        
+            core_.setProperty(camName, "OUTPUT TRIGGER KIND[0]","EXPOSURE");
+            core_.setProperty(camName, "OUTPUT TRIGGER POLARITY[0]","POSITIVE");
+            core_.setProperty(camName, "OUTPUT TRIGGER SOURCE[0]","TRIGGER");
+            core_.setProperty(camName, "TRIGGER GLOBAL EXPOSURE","GLOBAL RESET");
+            
             // prepares to grab frames from cam buffer
             core_.prepareSequenceAcquisition(camName);
             core_.startSequenceAcquisition(nFramesTotal, 0, true);
@@ -361,6 +387,11 @@ public class PIScanRunnable implements Runnable {
             throw new RuntimeException(e.getMessage());
         }
         
+        double beforeFileCreation = System.currentTimeMillis();
+        
+        runnableLogger.info(String.format(
+                "SETUP TIME: %.2f ms", (beforeFileCreation-theVeryBeginning)));
+        
         Datastore store;
         if (saveImgToDisk){
             dataSavePath = (new File(dataOutDir, "MMStack")).getAbsolutePath();
@@ -378,16 +409,47 @@ public class PIScanRunnable implements Runnable {
             store = mm_.data().createRAMDatastore();
             display = mm_.displays().createDisplay(store);
         }
+        double afterFileCreation = System.currentTimeMillis();
+        runnableLogger.info(String.format(
+                "DATASTORE FILE CREATION/RAM ALLOCATION TIME: %.2f ms", 
+                (afterFileCreation-theVeryBeginning)));
         
-        try{
+        // TODO: THIS IS A TEST, REMOVE HARD CODING 
+        // Maybe move this to the start
+        // String daqDODevice = deviceSettings.getDaqDOPortDeviceName();
+        String daqDODevice = "NIDAQDO-Dev2/port0";
+        String lineName = "line5";
+        // String lineName = deviceSettings.getLaserBlankingLines().get(
+            // deviceSettings.getCurrentAcqChannel());
+        
+        // Laser triggering on!
+        try {
+            core_.setProperty(daqDODevice, "Blanking", "On");  // blank on
+            core_.waitForDevice(daqDODevice);  // so that the line doesn't get set before blanking is on
+            Thread.sleep(160); // seems that the blanking lags a bit so that
+                               // setting the line happens ~160 ms before 
+                               // very silly. Happens in intervals of 40ms...
+            
+            core_.setProperty(daqDODevice, lineName, 1);  // laser digital on
+        } catch (Exception e) {
+            runnableLogger.severe("Failed to intitialise laser blanking " + e.getMessage());
+            throw new RuntimeException(e.getMessage());
+        }
+        
+        try {
             store = acquireTriggeredDataset(store, endScanMillim, nFramesTotal);
         } catch (Exception e){
             runnableLogger.severe("Triggered acquisition failed with " + e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
                 
+        
         try{
             cleanUpAcq(store);
+            core_.setProperty(daqDODevice, lineName, 0);  // laser digital on
+            core_.setProperty(daqDODevice, "Blanking", "Off");  // blank on
+
+
         } catch (Exception e){
             runnableLogger.severe("Acquisition cleanup failed with " + e.getMessage());
         }
@@ -410,7 +472,7 @@ public class PIScanRunnable implements Runnable {
             throw e;
         } finally {
             store.freeze();
-            store.close();
+            if(saveImgToDisk) store.close();
         }
     }
     
@@ -431,6 +493,8 @@ public class PIScanRunnable implements Runnable {
 
         try {
             PIStage.setPITriggerEnable(port, 1);
+            PIStage.setPositionMillim(mirrorStage, scanEnd);  
+
         } catch (Exception e) {
             runnableLogger.severe(
                     "Failed to enable triggering in acq loop with " + e.getMessage());
@@ -441,7 +505,6 @@ public class PIScanRunnable implements Runnable {
                 // print(pos);
                 // start movement, end at trig dist/2 so trigger goes down again (might not work with start and stop trigger set)
                 //core_.setPosition(PIDevice, max_z+(trig_dist/2));  
-                PIStage.setPositionMillim(mirrorStage, scanEnd);  
                 double tic=System.currentTimeMillis();
                 double toc=tic;
 
@@ -450,16 +513,13 @@ public class PIScanRunnable implements Runnable {
                         // wait for an image in the circular buffer
                         if (core_.getRemainingImageCount() > 0){
                             TaggedImage img = core_.popNextTaggedImage();	// TaggedImage
-                            runnableLogger.info("Got tagged image:" + nFrames);
+                            // runnableLogger.info("Got tagged image:" + nFrames);
                             Image tmp = mm_.data().convertTaggedImage(img);  // Image 
                             // does this copy in memory? inefficient?
                             Image cbImg = tmp.copyAtCoords(cb.z(nFrames).build());
-                            runnableLogger.info("Attempting to put in datastore");
-
                             store.putImage(cbImg);
                             grabbed = true;
                             nFrames++;
-                            runnableLogger.info("Successfully put in datastore");
                         }
                         toc = System.currentTimeMillis(); 
                 }
@@ -477,12 +537,14 @@ public class PIScanRunnable implements Runnable {
                     "Failed to disable triggering in acq loop with " + e.getMessage());
         }        
         double acqTimeStop = System.currentTimeMillis() - acqTimeStart; 
-        runnableLogger.info("Acq time: " + acqTimeStop + "ms");
-        runnableLogger.info("end position: " + core_.getPosition(mirrorStage));
+        runnableLogger.info("Acq time in acquireTriggeredDataset: [ms]" + acqTimeStop);
+        runnableLogger.info("End position: " + core_.getPosition(mirrorStage));
         
-        runnableLogger.info("nframes: " + nFrames);
-        runnableLogger.info("frames dropped? : " + (nFramesTotal-nFrames));
-        runnableLogger.info("total acq time: " + frameTimeTotal);
+        runnableLogger.info("nFrames: " + nFrames);
+        runnableLogger.info(String.format("Actual effective FPS: %.2f", 1e3*nFrames/frameTimeTotal));
+
+        runnableLogger.info("Frames dropped: " + (nFramesTotal-nFrames));
+        runnableLogger.info("Total time in frame grabbing loop [ms]: " + frameTimeTotal);
         
         return store;
     }

@@ -215,6 +215,12 @@ public class PIStage {
         }
     }
 
+    /** Set trigger distance (in millimeters) 
+    * @param port COM port
+    * @param device PI axis device number (1 by default for 1 axis)
+    * @param triggerDistance trigger distance in mm
+    * @throws Exception
+    */
     public static void setPITriggerDistance(String port, int device, double triggerDistance)
             throws Exception {
 
@@ -320,10 +326,13 @@ public class PIStage {
                         "Received answer %s from %s", answer, port));
                 // get value after being set
                 double value = Double.parseDouble(answer.split("=")[1]);
-                isSet = Math.abs(value - expectedValue) < 1e-5;
+                double diff = Math.abs(value - expectedValue);
+                isSet = Math.abs(value - expectedValue) < 1e-6;
+                PIStageLogger.info(String.format("Value set to %.6f when"
+                        + " attemping to set to %.6f (difference: %.7f)", 
+                        value, expectedValue, diff));
 
             } catch (Exception e) {
-                i++;
                 if (i > maxRetry) {
                     throw new TimeoutException(String.format("Failed to set trigger mode after %d "
                             + "tries with exception %s", maxRetry, e.getMessage()));
@@ -333,7 +342,12 @@ public class PIStage {
                 } catch (InterruptedException ie) {
                 }
             }
-        } while (!isSet);
+            i++;
+        } while (!isSet && i < maxRetry);
+        if (i > maxRetry){
+            throw new TimeoutException(String.format("Failed to set trigger mode "
+                + "after %d tries without exception--check precision?", maxRetry));
+        }
     }
 
     // These send serial command and get serial answer retries are overkill I think... I will end 

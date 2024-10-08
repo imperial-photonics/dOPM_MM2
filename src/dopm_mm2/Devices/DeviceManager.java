@@ -28,6 +28,7 @@ public class DeviceManager {
     private static final Logger deviceManagerLogger = Logger.getLogger(DeviceManager.class.getName()); 
 
     private List<String> laserDeviceNames;
+    private List<String> laserBlankingLines;
     private String filterDeviceName;
     private String XYStageDeviceName;
     private String ZStageDeviceName;
@@ -37,9 +38,9 @@ public class DeviceManager {
     private List<DeviceDetails> detailsOfDevicesInUse;
 
     // Device settings, states, etc.
-    private String[] laserChannelsAcq;
-    private String[] laserPowersAcq;
-    private String[] filtersAcq;
+    private List<String> laserChannelsAcq;
+    private List<String> laserPowersAcq;
+    private List<String> filtersAcq;
 
     // Trigger settings
     private double mirrorScanLength;  // um
@@ -65,6 +66,9 @@ public class DeviceManager {
     private String zStageName;
     private double zStageTravelSpeed;  // mm/s (um/ms)
     private String zStageComPort;
+    
+    private String daqDOPortDeviceName;  // name of device that represents a digital out port (port0 here)
+    private int currentAcqChannel;
     
     private double exposureTime;  // ms
     private double actualExposureTime;
@@ -93,8 +97,8 @@ public class DeviceManager {
         triggerModeStrings = new String[]
                 {"External trigger (global exposure)", "External trigger (rolling)", "Untriggered"};
         z_lim = new int[]{-12000000,1000000};
-        laserDeviceNames = new ArrayList(Arrays.asList(""));
-        
+        laserDeviceNames = new ArrayList<>();
+        laserBlankingLines = new ArrayList<>();
         filterDeviceName = "";
         XYStageDeviceName = "";
         ZStageDeviceName = "";
@@ -107,6 +111,7 @@ public class DeviceManager {
         laserChannelsAcq = null;
         laserPowersAcq = null;
         filtersAcq = null;
+        currentAcqChannel = 0;
 
         // Trigger settings
         mirrorScanLength = 50.0;  // Initialized to 50 um
@@ -124,11 +129,13 @@ public class DeviceManager {
         mirrorStageName = "";
         mirrorStageSpeed = 10.0;
         mirrorStageScanSpeed = 0.01; // safely slow
-        mirrorStageComPort = "";
+        mirrorStageComPort = "COM3";
 
         zStageName = "";
         zStageTravelSpeed = 10.0;
         zStageComPort = "";
+        
+        daqDOPortDeviceName = "";
 
         exposureTime = 5.0;
         actualExposureTime = 5.0;
@@ -153,15 +160,17 @@ public class DeviceManager {
         the GUI interface allows you to save to CSV.
         * @param configDetailsCsv Filename of config file, format:
         * ----- CSV file -----
-        *   laser,laserProperty1,laserPropery2,...,\n
-        *   camera,cameraProperty,\n
-        *   filter,filterProperty,\n
-        *   XYStage,XYStageProperty,\n
-        *   Zstage,ZstageProperty,\n
-        *   mirrorStage,mirrorStageProperty,\n
-        *   XYStageCOMPort,XYStageCOMPortProperty,\n
-        *   ZstageCOMPort,ZstageCOMPortProperty,\n
-        *   mirrorStageCOMPort,mirrorStageCOMPortProperty,\n
+        *   [0] laser,laserDeviceName1,laserDeviceName2,...,\n
+        *   [1] laser,laserBlankingLine1,laserBlankingLine2,...,\n
+        *   [2] camera,cameraDeviceName,\n
+        *   [3] filter,filterDeviceName,\n
+        *   [4] XYStage,XYStageDeviceName,\n
+        *   [5] Zstage,ZstageDeviceName,\n
+        *   [6] mirrorStage,mirrorStageDeviceName,\n
+        *   [7] XYStageCOMPort,XYStageCOMPort,\n
+        *   [8] ZstageCOMPort,ZstageCOMPort,\n
+        *   [9] mirrorStageCOMPort,mirrorStageCOMPort,\n
+        *   [10] DAQDOport,daqDOPortName,\n  
         * ---------------------
      */
     public void loadDeviceNames(File configDetailsCsv){
@@ -180,23 +189,34 @@ public class DeviceManager {
             // first column is the label (so use get(1), and that sublist
             deviceManagerLogger.info("getting laser dev");
             List<String> lasersLine = parseList(configData.get(0));
+            deviceManagerLogger.info("getting laser blanking lines");
+            List<String> laserBlankingLine = parseList(configData.get(1));
             deviceManagerLogger.info("getting filter dev");
-            String filterName = (parseList(configData.get(2))).get(1);
+            String filterName = (parseList(configData.get(3))).get(0);
             deviceManagerLogger.info("getting xystage dev");
-            String XYStageName = (parseList(configData.get(3))).get(1);
+            String XYStageName = (parseList(configData.get(4))).get(0);
             deviceManagerLogger.info("getting zstage dev");
-            String ZStageName = (parseList(configData.get(4))).get(1);
+            String ZStageName = (parseList(configData.get(5))).get(0);
             deviceManagerLogger.info("getting mirorstage dev");
-            String mirrStageName = (parseList(configData.get(5))).get(1);
+            String mirrStageName = (parseList(configData.get(6))).get(0);
             deviceManagerLogger.info("getting XYStageCOM dev");
-            String XYStageCOM = (parseList(configData.get(5))).get(1);
+            String XYStageCOM = (parseList(configData.get(7))).get(0);
             deviceManagerLogger.info("getting ZStageCOM dev");
-            String ZStageCOM = (parseList(configData.get(7))).get(1);
+            String ZStageCOM = (parseList(configData.get(8))).get(0);
             deviceManagerLogger.info("getting mirrorStageCOM dev");
-            String mirrorStageCOM = (parseList(configData.get(8))).get(1);
+            String mirrorStageCOM = (parseList(configData.get(9))).get(0);
+            deviceManagerLogger.info("mirrorStageCOM is " + mirrorStageCOM);
 
+            deviceManagerLogger.info("getting DAQ DO port dev");
+            String daqDOport = (parseList(configData.get(10))).get(0);
+            //TODO FIND WHEN IT FALLS OVER
             setLaserDeviceNames(lasersLine);
+            deviceManagerLogger.info("Done setLaserDeviceNames");
+            setLaserBlankingLines(laserBlankingLine);
+            deviceManagerLogger.info("Done laserBlankingLine");
             setCameraDeviceName(core_.getCameraDevice());
+            deviceManagerLogger.info("Done setCameraDeviceName");
+
             setFilterDeviceName(filterName);
             setXYStageDeviceName(XYStageName);
             setZStageDeviceName(ZStageName);
@@ -204,7 +224,9 @@ public class DeviceManager {
             setXyStageComPort(XYStageCOM);
             setMirrorStageComPort(mirrorStageCOM);
             setZStageComPort(ZStageCOM);
+            setDaqDOPortDeviceName(daqDOport);
             
+            deviceManagerLogger.info("Set devices with setters");
             // now get full list of devices in use
             // start list off with the lasers, then add the rest
             List<String> devicesInUse = getLaserDeviceNames();
@@ -218,6 +240,7 @@ public class DeviceManager {
             List<DeviceDetails> devicesDetails = new ArrayList<DeviceDetails>();
             for (int i=0; i<devicesInUse.size(); i++){
                 devicesDetails.add(new DeviceDetails(devicesInUse.get(i)));
+                deviceManagerLogger.info("adding device " + devicesInUse.get(i));
             }
             setDetailsOfDevicesInUse(devicesDetails);
 
@@ -240,11 +263,11 @@ public class DeviceManager {
         }
     }
     private List<String> parseList(List<String> row){
-        int rowLength = row.size();
-        if(rowLength<=1){  // size 1 indicates the column label only
+        deviceManagerLogger.info("Line read from device config: " + row);
+        if(row.size()==1){  // size 1 indicates the column label only
             row.add("");  // add on the value 
         }
-        row = row.subList(1,rowLength);
+        row = row.subList(1,row.size());
         
         deviceManagerLogger.info("Devices in config: " + row);
         return row;
@@ -349,27 +372,27 @@ public class DeviceManager {
     }
     
     
-    public String[] getLaserChannelsAcq() {
+    public List<String> getLaserChannelsAcq() {
         return laserChannelsAcq;
     }
 
-    public void setLaserChannelsAcq(String[] laserChannels) {
+    public void setLaserChannelsAcq(List<String> laserChannels) {
         this.laserChannelsAcq = laserChannels;
     }
 
-    public String[] getLaserPowersAcq() {
+    public List<String> getLaserPowersAcq() {
         return laserPowersAcq;
     }
 
-    public void setLaserPowersAcq(String[] laserPowers) {
+    public void setLaserPowersAcq(List<String> laserPowers) {
         this.laserPowersAcq = laserPowers;
     }
 
-    public String[] getFiltersAcq() {
+    public List<String> getFiltersAcq() {
         return filtersAcq;
     }
 
-    public void setFiltersAcq(String[] filters) {
+    public void setFiltersAcq(List<String> filters) {
         this.filtersAcq = filters;
     }
 
@@ -379,6 +402,7 @@ public class DeviceManager {
 
     public void setMirrorScanLength(double mirrorScanLength) {
         this.mirrorScanLength = mirrorScanLength;
+        deviceManagerLogger.info("Set mirror scan length to " + mirrorScanLength);
     }
 
     public double getTriggerDistance() {
@@ -550,10 +574,9 @@ public class DeviceManager {
     }
     
     public List<String> getLaserDeviceNames() {
-        if (!laserDeviceNames.equals("")) setLaserDeviceNames(new ArrayList<>(Arrays.asList("")));
+        // if (!laserDeviceNames.equals("")) setLaserDeviceNames(new ArrayList<>(Arrays.asList("")));
         return laserDeviceNames;
     }
-
     
     public void setLaserDeviceNames(List<String> laserDeviceNames) { 
         if (checkInDeviceList(laserDeviceNames)){
@@ -562,6 +585,25 @@ public class DeviceManager {
         }
     }
 
+    public List<String> getLaserBlankingLines() {
+        return laserBlankingLines;
+    }
+
+    public void setLaserBlankingLines(List<String> laserBlankingLines) throws Exception{
+        if (checkInDeviceList(getDaqDOPortDeviceName())){
+            for (int n=0; n<laserBlankingLines.size(); n++){
+                boolean isProp;
+                isProp = core_.hasProperty(getDaqDOPortDeviceName(), laserBlankingLines.get(n));
+                if(!isProp) deviceManagerLogger.warning(String.format(
+                        "No such DO line %s in DAQ port %s", 
+                        laserBlankingLines.get(n),
+                        getDaqDOPortDeviceName()));
+            }
+            this.laserBlankingLines = laserBlankingLines;
+        }
+    }
+    
+    
     public String getFilterDeviceName() {
         return filterDeviceName;
     }
@@ -620,6 +662,41 @@ public class DeviceManager {
         }
     }
 
+    public String getDaqDOPortDeviceName() {
+        return daqDOPortDeviceName;
+    }
+
+    public void setDaqDOPortDeviceName(String daqDeviceName) {
+        this.daqDOPortDeviceName = daqDeviceName;
+    }
+
+    public int getCurrentAcqChannel() {
+        return currentAcqChannel;
+    }
+    
+    public void nextChannel(){
+        
+        int nextChan = getCurrentAcqChannel() + 1;
+        if (nextChan >= getLaserChannelsAcq().size()){
+            nextChan = 0;
+            deviceManagerLogger.info("Returning to first channel in acq list");
+        }
+        setCurrentAcqChannel(nextChan);
+    }
+
+    public void setCurrentAcqChannel(int currentAcqChannel) throws 
+            IndexOutOfBoundsException {
+        if (currentAcqChannel >= laserChannelsAcq.size()){
+            String errMsg = "Attempted to set current acquisition channel "
+                    + "outside bounds of the acquisiton channel list";
+            deviceManagerLogger.severe(errMsg);
+            throw new IndexOutOfBoundsException(errMsg);
+        } else {
+            this.currentAcqChannel = currentAcqChannel;
+        }
+    }
+    
+    
     public StrVector getDeviceList() {
         return deviceList;
     }
