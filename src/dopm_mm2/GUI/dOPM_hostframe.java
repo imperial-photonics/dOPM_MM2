@@ -13,7 +13,7 @@ import org.micromanager.ScriptController;
 import org.micromanager.data.Datastore;
 import dopm_mm2.Devices.DeviceManager;
 import dopm_mm2.Runnables.PIScanRunnable;
-import dopm_mm2.Runnables.PITriggerTest;
+import dopm_mm2.Runnables.mdaTestRunnable;
 import dopm_mm2.util.MMStudioInstance;
 import java.io.File;
 import java.io.IOException;
@@ -726,13 +726,15 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_exposureTimeFieldActionPerformed
 
     private void scanIntervalFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_scanIntervalFieldActionPerformed
-        deviceSettings.setTriggerDistance(Double.parseDouble(scanIntervalField.getText()));
+        deviceSettings.setMirrorTriggerDistance(Double.parseDouble(scanIntervalField.getText()));
         // update the max triggered scan speed since it is affected by triggerDistance
         updateScanSpeedField();
     }//GEN-LAST:event_scanIntervalFieldActionPerformed
 
     private void snapTestButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_snapTestButtonActionPerformed
-        Runnable testRunnable = new PITriggerTest(core_, mm_);
+        // Runnable testRunnable = new PITriggerTest(core_, mm_);
+        Runnable testRunnable = new mdaTestRunnable(core_, mm_);
+
         Thread testThread = new Thread(testRunnable);
         testThread.start();
     }//GEN-LAST:event_snapTestButtonActionPerformed

@@ -100,10 +100,10 @@ public class PIScanRunnable implements Runnable {
                 
         sc = mm_.getScriptController();
         
-        camName = deviceSettings.getCameraDeviceName();
-        mirrorStage = deviceSettings.getMirrorStageDeviceName();
-        XYStage = deviceSettings.getXYStageDeviceName();
-        ZStage = deviceSettings.getZStageDeviceName();
+        camName = deviceSettings.getLeftCameraName();
+        mirrorStage = deviceSettings.getMirrorStageName();
+        XYStage = deviceSettings.getXyStageName();
+        ZStage = deviceSettings.getZStageName();
         
         // Set serial command
         port = deviceSettings.getMirrorStageComPort();
@@ -112,7 +112,7 @@ public class PIScanRunnable implements Runnable {
         
         scanLengthMillim = deviceSettings.getMirrorScanLength()*1e-3;  // target scan end in mm
         scanSpeed = deviceSettings.getMirrorStageScanSpeed();  // scan speed in mm/s or um/ms
-        trigDistMillim = deviceSettings.getTriggerDistance()*1e-3;  // trigger distance in um
+        trigDistMillim = deviceSettings.getMirrorTriggerDistance()*1e-3;  // trigger distance in um
         exposure = deviceSettings.getExposureTime();
         
         runnableLogger.info(String.format("Got device settings from hostframe: "
@@ -418,7 +418,7 @@ public class PIScanRunnable implements Runnable {
         // Maybe move this to the start
         // String daqDODevice = deviceSettings.getDaqDOPortDeviceName();
         String daqDODevice = "NIDAQDO-Dev2/port0";
-        String lineName = "line5";
+        String lineName = "line2";  // 515
         // String lineName = deviceSettings.getLaserBlankingLines().get(
             // deviceSettings.getCurrentAcqChannel());
         

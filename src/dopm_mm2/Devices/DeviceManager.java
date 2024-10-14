@@ -30,10 +30,10 @@ public class DeviceManager {
     private List<String> laserDeviceNames;
     private List<String> laserBlankingLines;
     private String filterDeviceName;
-    private String XYStageDeviceName;
-    private String ZStageDeviceName;
-    private String MirrorStageDeviceName;
-    private String CameraDeviceName;
+    // private String XYStageDeviceName;
+    // private String ZStageDeviceName;
+    // private String MirrorStageDeviceName;
+    private String leftCameraName;
     private StrVector deviceList;
     private List<DeviceDetails> detailsOfDevicesInUse;
 
@@ -43,9 +43,14 @@ public class DeviceManager {
     private List<String> filtersAcq;
 
     // Trigger settings
+    
+    private double xyStageScanLength;  // um
+    private double xyStageTriggerDistance;  // um
+    private String xyStageScanDirection;  // "x" or "y"
+    
     private double mirrorScanLength;  // um
-    private double triggerDistance;  // um
-    private int triggerMode;
+    private double mirrorTriggerDistance;  // um
+    private int triggerMode;  // camera setting for triggering (see triggerModeStrings)
     private String[] triggerModeStrings;
     private boolean useMaxScanSpeed = false;
     private double scanSpeedSafetyFactor;
@@ -100,10 +105,8 @@ public class DeviceManager {
         laserDeviceNames = new ArrayList<>();
         laserBlankingLines = new ArrayList<>();
         filterDeviceName = "";
-        XYStageDeviceName = "";
-        ZStageDeviceName = "";
-        MirrorStageDeviceName = "";
-        CameraDeviceName = "";
+
+        leftCameraName = "";
         deviceList = null;
         detailsOfDevicesInUse = null;
 
@@ -115,16 +118,20 @@ public class DeviceManager {
 
         // Trigger settings
         mirrorScanLength = 50.0;  // Initialized to 50 um
-        triggerDistance = 1.0;  // Initialized to 1 um
+        mirrorTriggerDistance = 1.0;  // Initialized to 1 um
         triggerMode = 1;  // Initialized to 1 (external trigger w/ global reset)
         useMaxScanSpeed = false;  // Initialized to false
         scanSpeedSafetyFactor = 0.95;
         maxTriggeredScanSpeed = 0.01;  // safely slow
 
+        xyStageScanLength = 50.0;  // um
+        xyStageTriggerDistance = 1.0;  // um
+        xyStageScanDirection = "y";  // "x" or "y"
+        
         xyStageName = ""; 
-        xyStageTravelSpeed = 0.0;
-        xyStageScanSpeed = 0.0;
-        xyStageComPort = "";
+        xyStageTravelSpeed = 10.0;
+        xyStageScanSpeed = 0.01;
+        xyStageComPort = "COM7";
 
         mirrorStageName = "";
         mirrorStageSpeed = 10.0;
@@ -214,13 +221,13 @@ public class DeviceManager {
             deviceManagerLogger.info("Done setLaserDeviceNames");
             setLaserBlankingLines(laserBlankingLine);
             deviceManagerLogger.info("Done laserBlankingLine");
-            setCameraDeviceName(core_.getCameraDevice());
+            setLeftCameraName(core_.getCameraDevice());
             deviceManagerLogger.info("Done setCameraDeviceName");
 
             setFilterDeviceName(filterName);
-            setXYStageDeviceName(XYStageName);
-            setZStageDeviceName(ZStageName);
-            setMirrorStageDeviceName(mirrStageName);
+            setXyStageName(XYStageName);
+            setZStageName(ZStageName);
+            setMirrorStageName(mirrStageName);
             setXyStageComPort(XYStageCOM);
             setMirrorStageComPort(mirrorStageCOM);
             setZStageComPort(ZStageCOM);
@@ -231,10 +238,10 @@ public class DeviceManager {
             // start list off with the lasers, then add the rest
             List<String> devicesInUse = getLaserDeviceNames();
             devicesInUse.add(getFilterDeviceName());
-            devicesInUse.add(getXYStageDeviceName());
-            devicesInUse.add(getZStageDeviceName());
-            devicesInUse.add(getMirrorStageDeviceName());
-            devicesInUse.add(getCameraDeviceName());
+            devicesInUse.add(getXyStageName());
+            devicesInUse.add(getZStageName());
+            devicesInUse.add(getMirrorStageName());
+            devicesInUse.add(getLeftCameraName());
             
             // then their properties, use this to revert after an acquisition for example
             List<DeviceDetails> devicesDetails = new ArrayList<DeviceDetails>();
@@ -368,7 +375,7 @@ public class DeviceManager {
 
     public void updateMaxTriggeredScanSpeed() {
         setMaxTriggeredScanSpeed(
-                (getTriggerDistance()/getCameraReadoutTime())*getScanSpeedSafetyFactor());
+                (getMirrorTriggerDistance()/getCameraReadoutTime())*getScanSpeedSafetyFactor());
     }
     
     
@@ -405,18 +412,44 @@ public class DeviceManager {
         deviceManagerLogger.info("Set mirror scan length to " + mirrorScanLength);
     }
 
-    public double getTriggerDistance() {
-        return triggerDistance;
+    public double getMirrorTriggerDistance() {
+        return mirrorTriggerDistance;
     }
 
     /** Trigger distance setter, in um 
-     * @param triggerDistance trigger distance in um */
-    public void setTriggerDistance(double triggerDistance) {
-        this.triggerDistance = triggerDistance;
-        deviceManagerLogger.info("Set triggerDistance to " + triggerDistance);
+     * @param mirrorTriggerDistance trigger distance in um */
+    public void setMirrorTriggerDistance(double mirrorTriggerDistance) {
+        this.mirrorTriggerDistance = mirrorTriggerDistance;
+        deviceManagerLogger.info("Set triggerDistance to " + mirrorTriggerDistance);
         updateMaxTriggeredScanSpeed();
     }
 
+    public double getXyStageScanLength() {
+        return xyStageScanLength;
+    }
+
+    public void setXyStageScanLength(double xyStageScanLength) {
+        this.xyStageScanLength = xyStageScanLength;
+    }
+
+    public double getXyStageTriggerDistance() {
+        return xyStageTriggerDistance;
+    }
+
+    public void setXyStageTriggerDistance(double xyStageTriggerDistance) {
+        this.xyStageTriggerDistance = xyStageTriggerDistance;
+    }
+
+    public String getXyStageScanDirection() {
+        return xyStageScanDirection;
+    }
+
+    public void setXyStageScanDirection(String xyStageScanDirection) {
+        this.xyStageScanDirection = xyStageScanDirection;
+    }
+    
+    
+    
     public int getTriggerMode() {
         return triggerMode;
     }
@@ -517,11 +550,11 @@ public class DeviceManager {
     }
     
 
-    public String getzStageName() {
+    public String getZStageName() {
         return zStageName;
     }
 
-    public void setzStageName(String zStageName) {
+    public void setZStageName(String zStageName) {
         if (!zStageName.equals("")){
             this.zStageName = zStageName;
             setZStageComPort(getPort(zStageName));
@@ -617,48 +650,14 @@ public class DeviceManager {
         
     }
 
-    public String getXYStageDeviceName() {
-        return XYStageDeviceName;
+    public String getLeftCameraName() {
+        return leftCameraName;
     }
 
-    public void setXYStageDeviceName(String XYStageDeviceName) {
-        if (checkInDeviceList(XYStageDeviceName)) {
-            this.XYStageDeviceName = XYStageDeviceName;
-            deviceManagerLogger.info("XYStage device set to" + XYStageDeviceName);
-
-        }
-    }
-
-    public String getZStageDeviceName() {
-        return ZStageDeviceName;
-    }
-
-    public void setZStageDeviceName(String ZStageDeviceName) {
-        if (checkInDeviceList(ZStageDeviceName)){
-            this.ZStageDeviceName = ZStageDeviceName;
-            deviceManagerLogger.info("ZStage device set to" + ZStageDeviceName);
-        }
-    }
-
-    public String getMirrorStageDeviceName() {
-        return MirrorStageDeviceName;
-    }
-
-    public void setMirrorStageDeviceName(String MirrorStageDeviceName) {
-        if (checkInDeviceList(MirrorStageDeviceName)) {
-            this.MirrorStageDeviceName = MirrorStageDeviceName;
-            deviceManagerLogger.info("Mirror stage device set to" + MirrorStageDeviceName);
-        }
-    }
-
-    public String getCameraDeviceName() {
-        return CameraDeviceName;
-    }
-
-    public void setCameraDeviceName(String CameraDeviceName) {
-        if (checkInDeviceList(CameraDeviceName)){
-            this.CameraDeviceName = CameraDeviceName;
-            deviceManagerLogger.info("Camera set to" + CameraDeviceName);
+    public void setLeftCameraName(String leftCameraName) {
+        if (checkInDeviceList(leftCameraName)){
+            this.leftCameraName = leftCameraName;
+            deviceManagerLogger.info("Camera set to" + leftCameraName);
         }
     }
 

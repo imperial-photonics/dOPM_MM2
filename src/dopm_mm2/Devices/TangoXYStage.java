@@ -1,4 +1,4 @@
-/*
+ /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
@@ -7,6 +7,8 @@ package dopm_mm2.Devices;
 import dopm_mm2.util.MMStudioInstance;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import mmcorej.CMMCore;
 
 /** Static class to control Marzhauser XY stange with Tango, mostly for 
@@ -85,49 +87,101 @@ public class TangoXYStage {
             throw e;
         }
     }
+    
+    /** Set desired trigger range and calculate and return actual ranged based
+     * on integer number of triggers considering the trigger distance
+     * Is always less than desiredTriggerRange; this method gets trigd
+     * @param port COM port
+     * @param axis axis to trigger over, x or y
+     * @param desiredTriggerRange desired volume scan range
+     * @return actual trigger range
+     * @throws Exception if setting trigger range fails
+     **/
+    public static double[] setTangoTriggerRange(String port, String axis,
+            double[] desiredTriggerRange) throws Exception {
+        MMStudioInstance.getCore().setSerialPortCommand(
+                port, "?trigd " + axis, "\r");
+        double triggerDist = Double.parseDouble(MMStudioInstance.getCore().
+                getSerialPortAnswer(port, "\r"));
+        return setTangoTriggerRange(port, axis,
+            desiredTriggerRange, triggerDist);
+    }
+
+    
     /** Works by calculating N number of triggers to fit in the desired 
      * trigger range and calculates the actual range resulting from N 
      * triggers separated by triggerDist--Is always less than 
      * desiredTriggerRange.
+     * @param port COM port
+     * @param axis axis to trigger over, x or y
+     * @param desiredTriggerRange desired volume scan range
+     * @param triggerDist trigger distance used to calculation trigger range
+     * @return actual trigger range
+     * @throws Exception if setting trigger range fails
      **/
     public static double[] setTangoTriggerRange(String port, String axis,
             double[] desiredTriggerRange, double triggerDist) throws Exception {
 
-        double nTriggers = Math.floor(
+        int nTriggers = (int)Math.floor(
                 (desiredTriggerRange[1]-desiredTriggerRange[0])/triggerDist);
         double startTrigger = desiredTriggerRange[0];
         double endTrigger = startTrigger + nTriggers*triggerDist;
         String msg = String.format("!trigr %.5f %.5f %d", 
                 startTrigger, endTrigger, nTriggers );
+        String queryMsg = String.format("?trigr %.5f %.5f %d", 
+            startTrigger, endTrigger, nTriggers );
+        setAndCheckSerial(port, msg, msg, endTrigger);
         return new double[]{startTrigger, endTrigger};
     }
 
         
-    /** sets a string value with tango ASCII e.g., trigd x 0.1. */
+    /** sets a string value with tango ASCII e.g., trigd x 0.1. 
+     * @param port COM port
+     * @param msg serial command used to set value
+     * @param queryMsg serial command used to check value
+     * @param expectedValue value (string) that is trying to be set
+     * @throws TimeoutException if fails to set the value after 5 retries
+     **/
     public static void setAndCheckSerial(
             String port, String msg, String queryMsg, String expectedValue)
             throws TimeoutException, IllegalStateException {
         setAndCheckSerial_(port, msg, queryMsg, expectedValue);
         
     }
-    /** sets a double value with tango ASCII e.g., triga x. */
+    /** sets a double value with tango ASCII e.g., triga x. 
+     * @param port COM port
+     * @param msg serial command used to set value
+     * @param queryMsg serial command used to check value
+     * @param expectedValue value (double) that is trying to be set
+     * @throws TimeoutException if fails to set the value after 5 retries
+     **/
     public static void setAndCheckSerial(
         String port, String msg, String queryMsg, Double expectedValue)
         throws TimeoutException, IllegalStateException {
         setAndCheckSerial_(port, msg, queryMsg, expectedValue);
     }
     
+    /** sets a double value with tango ASCII e.g., triga x. 
+     * @param port COM port
+     * @param msg serial command used to set value
+     * @param queryMsg serial command used to check value
+     * @param expectedValue value that is trying to be set
+     * @throws TimeoutException if fails to set the value after 5 retries
+     **/
     public static void setAndCheckSerial_(
             String port, String msg, String queryMsg, Object expectedValue)
             throws TimeoutException, IllegalStateException {
 
-        String axis = msg.split(" ")[1];
-        if (!axis.equals("x") && !axis.equals("y")){
-            axis = "x";
+        Pattern p = Pattern.compile("[xy]");
+        Matcher m = p.matcher(msg);
+        String axis = "";
+        while(m.find()){
+            axis = m.group(0);
         }
-        String errCmd = "?err " + axis;
 
-        String answer = "";
+        String errCmd = "err";  
+
+        String answer;
         int sleep_intvl_ms = 1000;
         int maxRetry = 5;
         boolean isSet = false;
@@ -147,16 +201,18 @@ public class TangoXYStage {
                 ERR = core.getSerialPortAnswer(port, "\r");
                 if (!ERR.equals("0")) {
                     String errMsg = String.format(
-                            "Error code %1$s in Tango from err after sending command %2$s", ERR, msg);
+                            "Error code %1$s in Tango from err after sending "
+                                    + "command %2$s", ERR, msg);
                     tangoXYLogger.severe(errMsg);
                     throw new Exception(errMsg);
                 }
-
+                // check if set correctly
                 core.setSerialPortCommand(port, queryMsg, "\r");
                 answer = core.getSerialPortAnswer(port, "\r");
                 tangoXYLogger.info(String.format(
                         "Received answer %s from %s", answer, port));
-                // get value after being set
+                
+                // get value after being set, could be string or double
                 if (expectedValue instanceof Double) {
                     double value = Double.parseDouble(answer);
                     double evalueDouble = (Double) expectedValue;
