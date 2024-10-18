@@ -24,8 +24,48 @@ public class TangoXYStage {
     public void TangoXYStage() {
     }
     
+    /** Generic tango move command that takes scanAxis, uses MMCore.
+     * 
+     * @param device XY stage device name
+     * @param position target position for axis in um
+     * @param axis axis to move, x or y
+     */
+    // Generic move command that takes scanAxis, uses MMCore functionality.
+    // This feels clunky..
+    public static void setAxisPosition(
+            String device, double position, String axis) throws Exception {
+        try {
+            double posXStart = MMStudioInstance.getCore().getXPosition(device);
+            double posYStart = MMStudioInstance.getCore().getYPosition(device);
+            
+            switch (axis){
+                case "x":
+                    MMStudioInstance.getCore().setXYPosition(
+                            device, position, posYStart);
+                    tangoXYLogger.info(String.format("Set %s position to "
+                            + "%.2f um", axis, position));
+                    break;
+                case "y":
+                    MMStudioInstance.getCore().setXYPosition(
+                            device, posXStart, position);
+                    tangoXYLogger.info(String.format("Set %s position to "
+                            + "%.2f um", axis, position));
+                    break;
+                default:
+                    throw new Exception(String.format("%s is an invalid axis, "
+                            + "use x or y", axis));
+            }
+        } catch (Exception e){
+            tangoXYLogger.severe(String.format(
+                    "Failed to set %s %s to position %.2f um with: %s",
+                    device, axis, position, e.getMessage()));
+            throw new Exception(e);
+        }
+    }
+    
     // Generic move command in millimeters, tango uses um units (or 10s of um?)
-    public static void setTangoXYPositionMillim(String device, double[] position){
+    public static void setTangoXYPositionMillim(
+            String device, double[] position) throws Exception{
         double posX = position[0]*1e3;
         double posY = position[1]*1e3;
         try {
@@ -36,7 +76,7 @@ public class TangoXYStage {
             tangoXYLogger.severe(String.format(
                     "Failed to set %s to position (%.4f,%.4f) mm with: %s",
                     device, posX, posY, e.getMessage()));
-            throw new RuntimeException(e);
+            throw new Exception(e);
         }
     }
     
@@ -47,8 +87,9 @@ public class TangoXYStage {
     * @throws Exception
     */
     public static void setTangoTriggerDistance(
-        String port, String axis, double triggerDistance) throws Exception {
-            // TODO check min incremental motion i
+            String port, String axis, double triggerDistance) throws Exception {
+        // TODO check min incremental motion i, implement a version that gets 
+        // axis implicitly
         String msg = String.format("!trigd %s %.5f", axis, triggerDistance);
         String queryMsg = String.format("?trigd %s", axis);
         double expectedValue = triggerDistance;
@@ -60,7 +101,7 @@ public class TangoXYStage {
         }
     }
     
-    public static void setTangoTriggerAxis( String port, String axis) 
+    public static void setTangoTriggerAxis(String port, String axis) 
                 throws Exception {
         // TODO check min incremental motion i
         String msg = String.format("!triga %s", axis);
@@ -74,12 +115,12 @@ public class TangoXYStage {
         }
     }
     
-    public static void setTangoTriggerEnable( String port, String axis) 
-                throws Exception {
+    public static void setTangoTriggerEnable(
+            String port, String axis, int trigOn) throws Exception {
         // TODO check min incremental motion i
-        String msg = String.format("!triga %s", axis);
-        String queryMsg = "?triga";
-        String expectedValue = axis;
+        String msg = String.format("!trig %s %d", axis, trigOn);
+        String queryMsg = "?trig";
+        double expectedValue = trigOn;
         try {
             setAndCheckSerial(port, msg, queryMsg, expectedValue);
         } catch (Exception e) {
@@ -101,12 +142,12 @@ public class TangoXYStage {
             double[] desiredTriggerRange) throws Exception {
         MMStudioInstance.getCore().setSerialPortCommand(
                 port, "?trigd " + axis, "\r");
+        // in mm
         double triggerDist = Double.parseDouble(MMStudioInstance.getCore().
                 getSerialPortAnswer(port, "\r"));
         return setTangoTriggerRange(port, axis,
             desiredTriggerRange, triggerDist);
     }
-
     
     /** Works by calculating N number of triggers to fit in the desired 
      * trigger range and calculates the actual range resulting from N 
@@ -126,6 +167,7 @@ public class TangoXYStage {
                 (desiredTriggerRange[1]-desiredTriggerRange[0])/triggerDist);
         double startTrigger = desiredTriggerRange[0];
         double endTrigger = startTrigger + nTriggers*triggerDist;
+        // note that trigr sets trigm 20 implicitly
         String msg = String.format("!trigr %.5f %.5f %d", 
                 startTrigger, endTrigger, nTriggers );
         String queryMsg = String.format("?trigr %.5f %.5f %d", 

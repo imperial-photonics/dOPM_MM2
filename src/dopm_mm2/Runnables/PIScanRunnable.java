@@ -27,6 +27,8 @@ import java.io.IOException;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import org.micromanager.PropertyMap;
+import org.micromanager.PropertyMaps;
 import org.micromanager.data.SummaryMetadata;
 
 /* stuff for future
@@ -52,7 +54,6 @@ public class PIScanRunnable implements Runnable {
     private ScriptController sc;
 
     private DeviceManager deviceSettings;
-    private PIStage control;
     private DisplayWindow display;
     
     private String camName;
@@ -67,13 +68,14 @@ public class PIScanRunnable implements Runnable {
     
     // Set serial command
     private String port;
-    private String commandTerminator = "\n"; 
+    private String cmdTerm = "\n"; 
     
     private String settingsOutDir;
     private String dataOutDir;
     private String baseDir;
     private String dataSavePath;
     private FileHandler fh;
+    private double currentViewAngle;
     
     boolean saveImgToDisk;
     
@@ -108,27 +110,66 @@ public class PIScanRunnable implements Runnable {
         // Set serial command
         port = deviceSettings.getMirrorStageComPort();
         runnableLogger.info("For PIMag, using port: " + port);
-        commandTerminator = "\n"; 
+        cmdTerm = "\n"; 
         
         scanLengthMillim = deviceSettings.getMirrorScanLength()*1e-3;  // target scan end in mm
         scanSpeed = deviceSettings.getMirrorStageScanSpeed();  // scan speed in mm/s or um/ms
         trigDistMillim = deviceSettings.getMirrorTriggerDistance()*1e-3;  // trigger distance in um
         exposure = deviceSettings.getExposureTime();
+        currentViewAngle = 0;
         
         runnableLogger.info(String.format("Got device settings from hostframe: "
                 + "scan length[mm] %.5f; "
-                + "scanSspeed[mm/s] %.5f; "
+                + "scan speed[mm/s] %.5f; "
                 + "trigger distance[mm] %.5f;"
                 + "exposure time[ms] %.5f", 
                 scanLengthMillim, scanSpeed, trigDistMillim, exposure));
     }
     
-    public int makeDirsAndLog(){
+    @Override
+    @SuppressWarnings("UnusedAssignment")
+    public void run(){
+        // 
+        if (deviceSettings.isView1Imaged()){
+            // this config should be set automatically if it doesnt exist from 
+            // PIViewPositions.txt (TODO)
+            try { 
+                core_.setConfig("dOPM View", "View 1");
+            } catch (Exception e){
+                runnableLogger.severe("Failed to change to view 1, "
+                        + "check config dOPM View exists with preset View 1");
+            }
+            // I think hugh would do 0 and 90 instead of -45 and 45, check
+            //runOneView(-deviceSettings.getOpmAngle());  
+            currentViewAngle = -deviceSettings.getOpmAngle();
+
+        }
+        if (deviceSettings.isView2Imaged()){
+            try { 
+                core_.setConfig("dOPM View", "View 2");
+            } catch (Exception e){
+                runnableLogger.severe("Failed to change to view 2, "
+                        + "check config dOPM View exists with preset View 2");
+            }
+            currentViewAngle = deviceSettings.getOpmAngle();
+            runOneView();
+        }
+        
+    }
+
+    private void runOneView(){
+        
+        // TODO find what might be causing extra commands sitting in buffer
+        sc.message("Running Mirror-scan volume acquisition!");
+        runnableLogger.info("Running Mirror-scan volume acquisition!");
+        double theVeryBeginning = System.currentTimeMillis();
+
+        new File(baseDir).mkdirs();
+        new File(settingsOutDir).mkdirs();
+        new File(dataOutDir).mkdirs();
+        
+        // Create log file
         try { 
-            new File(baseDir).mkdirs();
-            new File(settingsOutDir).mkdirs();
-            new File(dataOutDir).mkdirs();
-            
             LocalDateTime date = LocalDateTime.now(); // Create a date object
             DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern(
                     "yyyyMMddhhmmss");
@@ -145,25 +186,9 @@ public class PIScanRunnable implements Runnable {
             fh.setFormatter(formatter);  
         } catch (IOException ioe){
             runnableLogger.severe("Failed to create log with " + ioe.getMessage());
-            return 1;
         } catch (SecurityException se){
             runnableLogger.severe("Failed to create dirs " + se.getMessage());
-            return 1;
         }
-        return 0;
-    }
-    
-    @Override
-    @SuppressWarnings("UnusedAssignment")
-    public void run(){
-        
-        // TODO find what might be causing extra commands sitting in buffer
-        sc.message("Running Mirror-scan volume acquisition!");
-        runnableLogger.info("Running Mirror-scan volume acquisition!");
-        double theVeryBeginning = System.currentTimeMillis();
-
-        
-        makeDirsAndLog();  // make dirs for saving volume and logs
 
         // this is here in case the runnable is called in a loop, for example
         if (frame_.getInterruptFlag()) {
@@ -223,10 +248,14 @@ public class PIScanRunnable implements Runnable {
         }
         
         // based on settings, e.g. trigger mode and exposure, get readout time
-        double readoutTimeMs = deviceSettings.getCameraReadoutTime();
-        runnableLogger.info("readout time (ms) " + readoutTimeMs);
+        try {
+            double readoutTimeMs = deviceSettings.getCameraReadoutTime();
+            runnableLogger.info("readout time (ms) " + readoutTimeMs);
 
-        double maxFPS = 1000/readoutTimeMs;
+            double maxFPS = 1000/readoutTimeMs;
+        } catch (Exception e){
+            runnableLogger.severe("Couldn't find camera readout time");
+        }
 
         // undershoot and overshoot for ramp up and down
         double undershootMillim = 7*1e-3;  // 7 um
@@ -243,12 +272,6 @@ public class PIScanRunnable implements Runnable {
         double effectiveFPS = (1/(trigDistMillim/scanSpeed));
         runnableLogger.info(
                     "Effective FPS: " + effectiveFPS);
-
-        // should never happen v, this is controlled in DeviceManager in setters
-        if (readoutTimeMs > 1e3*trigDistMillim/scanSpeed){
-            runnableLogger.warning(
-                    "Trigger intervals too fast for camera readout time, frames will be dropped");
-        }
 
         int nFramesTotal = (int)Math.floor(
                 (endMirrorScanMillim-startMirrorScanMillim)/trigDistMillim);  // number of frames
@@ -398,7 +421,10 @@ public class PIScanRunnable implements Runnable {
             try {
                 store = FileMM.createDatastore(camName, dataSavePath, true);                
                 // these days you need to create metadata with these TIFF datastores...
-                SummaryMetadata metaData = mm_.data().summaryMetadataBuilder().build();
+                // add view angle to metadata
+                PropertyMap myPropertyMap = PropertyMaps.builder().
+                    putDouble("angle", currentViewAngle).build();
+                SummaryMetadata metaData = mm_.data().summaryMetadataBuilder().userData(myPropertyMap).build();
                 store.setSummaryMetadata(metaData);
             } catch (IOException ie){
                 runnableLogger.severe("Failed to create datastore in " + dataSavePath +
@@ -536,9 +562,10 @@ public class PIScanRunnable implements Runnable {
             runnableLogger.severe(
                     "Failed to disable triggering in acq loop with " + e.getMessage());
         }        
-        double acqTimeStop = System.currentTimeMillis() - acqTimeStart; 
-        runnableLogger.info("Acq time in acquireTriggeredDataset: [ms]" + acqTimeStop);
-        runnableLogger.info("End position: " + core_.getPosition(mirrorStage));
+        double acqDuration = System.currentTimeMillis() - acqTimeStart; 
+        runnableLogger.info(String.format(
+                "Acq time in acquireTriggeredDataset %.1f ms", acqDuration));
+        runnableLogger.info("Actual/target end position: % um" + core_.getPosition(mirrorStage));
         
         runnableLogger.info("nFrames: " + nFrames);
         runnableLogger.info(String.format("Actual effective FPS: %.2f", 1e3*nFrames/frameTimeTotal));

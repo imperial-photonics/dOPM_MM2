@@ -55,7 +55,7 @@ public class FileMM {
                     throw new IOException("File already exists, use overwrite=true "+
                     "when calling createDatastore if you want to overwrite");
                 }
-                sc.message("Overwriting previous attempt in " + fullDir);
+                fileLogger.info("Overwriting previous attempt in " + fullDir);
                 try {
                     // delete if already exists (for retries)
                     deleteDatastore(camName, fileSaveFolderDir, true); 
@@ -70,10 +70,12 @@ public class FileMM {
 		
 	} catch (IOException ex) {
             // mmlog = mm_.getLogManager();
+            String errorMsg = "Error creating datastore in " + 
+                    fileSaveFolderDir + camName + "/ with " + ex.getMessage();
             fileLogger.severe("Error creating datastore in " + fileSaveFolderDir + camName 
                     +"/ with " + ex.getMessage());
             // sc.message("Error in creating datastore for " + camName + "!");
-            throw ex;
+            throw new IOException(errorMsg);
 	}
 	sc.message("Successfully created datastores!");
 	return img_ds;
@@ -99,7 +101,7 @@ public class FileMM {
             try {
                 String[] fileNames = new File(fullDir).list();
                 for(int i=0; i<fileNames.length; i++){ 
-                    sc.message("Deleting " + fileNames[i]
+                    fileLogger.info("Deleting " + fileNames[i]
                             + " (" + (i+1) + "/" + fileNames.length + ")");
                     File file = new File(fullDir + fileNames[i]);
                     if(file.isFile()){
