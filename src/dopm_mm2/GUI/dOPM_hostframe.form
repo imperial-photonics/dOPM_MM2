@@ -67,8 +67,8 @@
                           <Component id="jScrollPane1" max="32767" attributes="0"/>
                       </Group>
                   </Group>
-                  <Component id="fileSettingsPanel" max="32767" attributes="0"/>
                   <Component id="jPanel1" alignment="0" max="32767" attributes="0"/>
+                  <Component id="fileSettingsPanel" alignment="0" max="32767" attributes="0"/>
               </Group>
               <EmptySpace max="-2" attributes="0"/>
           </Group>
@@ -77,7 +77,7 @@
     <DimensionLayout dim="1">
       <Group type="103" groupAlignment="0" attributes="0">
           <Group type="102" alignment="0" attributes="0">
-              <EmptySpace min="-2" max="-2" attributes="0"/>
+              <EmptySpace max="-2" attributes="0"/>
               <Component id="jPanel1" min="-2" max="-2" attributes="0"/>
               <EmptySpace min="-2" max="-2" attributes="0"/>
               <Component id="fileSettingsPanel" min="-2" max="-2" attributes="0"/>
@@ -261,7 +261,7 @@
                           <Component id="view2CheckBox" min="-2" max="-2" attributes="0"/>
                       </Group>
                   </Group>
-                  <EmptySpace pref="33" max="32767" attributes="0"/>
+                  <EmptySpace pref="16" max="32767" attributes="0"/>
               </Group>
           </Group>
         </DimensionLayout>
@@ -295,10 +295,15 @@
                       <Component id="xScanRadioButton" alignment="3" min="-2" max="-2" attributes="0"/>
                   </Group>
                   <EmptySpace max="-2" attributes="0"/>
-                  <Group type="103" groupAlignment="3" attributes="0">
-                      <Component id="viewsLabel" alignment="3" min="-2" max="-2" attributes="0"/>
-                      <Component id="view1CheckBox" alignment="3" min="-2" max="-2" attributes="0"/>
-                      <Component id="view2CheckBox" alignment="3" min="-2" max="-2" attributes="0"/>
+                  <Group type="103" groupAlignment="0" attributes="0">
+                      <Group type="103" groupAlignment="3" attributes="0">
+                          <Component id="viewsLabel" alignment="3" min="-2" max="-2" attributes="0"/>
+                          <Component id="view1CheckBox" alignment="3" min="-2" max="-2" attributes="0"/>
+                      </Group>
+                      <Group type="102" alignment="1" attributes="0">
+                          <Component id="view2CheckBox" min="-2" max="-2" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
+                      </Group>
                   </Group>
               </Group>
           </Group>
@@ -351,16 +356,20 @@
                       <Group type="102" attributes="0">
                           <EmptySpace min="-2" max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
-                              <Component id="mirrorScanLengthField" alignment="0" max="32767" attributes="0"/>
+                              <Component id="mirrorScanLengthField" alignment="0" pref="0" max="32767" attributes="0"/>
                               <Component id="mirrorScanIntervalField" alignment="0" max="32767" attributes="0"/>
                               <Group type="102" alignment="0" attributes="0">
-                                  <Component id="mirrorScanSpeedField" min="-2" pref="100" max="-2" attributes="0"/>
+                                  <Component id="mirrorScanSpeedField" min="-2" max="-2" attributes="0"/>
                                   <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                               </Group>
                           </Group>
-                          <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
                           <Component id="mirrorMaxSpeedCheckBox" min="-2" max="-2" attributes="0"/>
-                          <EmptySpace pref="141" max="32767" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
+                          <Component id="jLabel1" min="-2" max="-2" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
+                          <Component id="jTextField1" min="-2" pref="60" max="-2" attributes="0"/>
+                          <EmptySpace min="-2" pref="58" max="-2" attributes="0"/>
                       </Group>
                   </Group>
                 </DimensionLayout>
@@ -373,6 +382,8 @@
                           <Group type="103" groupAlignment="3" attributes="0">
                               <Component id="mirrorMaxSpeedCheckBox" alignment="3" min="-2" max="-2" attributes="0"/>
                               <Component id="mirrorScanSpeedField" alignment="3" min="-2" max="-2" attributes="0"/>
+                              <Component id="jTextField1" alignment="3" min="-2" max="-2" attributes="0"/>
+                              <Component id="jLabel1" alignment="3" min="-2" max="-2" attributes="0"/>
                           </Group>
                           <EmptySpace min="-2" max="-2" attributes="0"/>
                           <Component id="mirrorScanIntervalField" min="-2" max="-2" attributes="0"/>
@@ -428,18 +439,31 @@
                 <Component class="javax.swing.JCheckBox" name="mirrorMaxSpeedCheckBox">
                   <Properties>
                     <Property name="text" type="java.lang.String" value="Max"/>
+                    <Property name="horizontalTextPosition" type="int" value="10"/>
                   </Properties>
                   <Events>
                     <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="mirrorMaxSpeedCheckBoxActionPerformed"/>
                   </Events>
+                </Component>
+                <Component class="javax.swing.JTextField" name="jTextField1">
+                  <Properties>
+                    <Property name="text" type="java.lang.String" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                      <Connection code="String.format(&quot;%.2f&quot;,deviceSettings.getScanSpeedSafetyFactor())" type="code"/>
+                    </Property>
+                  </Properties>
+                </Component>
+                <Component class="javax.swing.JLabel" name="jLabel1">
+                  <Properties>
+                    <Property name="text" type="java.lang.String" value="% of Max"/>
+                  </Properties>
                 </Component>
               </SubComponents>
             </Container>
             <Container class="javax.swing.JPanel" name="xyStageScanSettingsPanel">
               <Constraints>
                 <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
-                  <JTabbedPaneConstraints tabName="XY Stage scan (Y)">
-                    <Property name="tabTitle" type="java.lang.String" value="XY Stage scan (Y)"/>
+                  <JTabbedPaneConstraints tabName="XY Stage scan">
+                    <Property name="tabTitle" type="java.lang.String" value="XY Stage scan"/>
                   </JTabbedPaneConstraints>
                 </Constraint>
               </Constraints>
@@ -456,11 +480,11 @@
                                       <Component id="xyScanIntervalField" max="32767" attributes="0"/>
                                   </Group>
                                   <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
-                                  <Component id="xyMaxSpeedCheckBox" min="-2" max="-2" attributes="0"/>
+                                  <Component id="xyMaxSpeedCheckBox" min="-2" pref="57" max="-2" attributes="0"/>
                               </Group>
                               <Component id="xyScanLengthField" min="-2" pref="100" max="-2" attributes="0"/>
                           </Group>
-                          <EmptySpace pref="141" max="32767" attributes="0"/>
+                          <EmptySpace pref="130" max="32767" attributes="0"/>
                       </Group>
                   </Group>
                 </DimensionLayout>
@@ -552,8 +576,8 @@
           <Properties>
             <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.editors2.ComboBoxModelEditor">
               <StringArray count="3">
-                <StringItem index="0" value="External trigger (global exposure)"/>
-                <StringItem index="1" value="External trigger (rolling)"/>
+                <StringItem index="0" value="External trigger (global reset)"/>
+                <StringItem index="1" value="External trigger (global exposure with rolling)"/>
                 <StringItem index="2" value="Untriggered"/>
               </StringArray>
             </Property>

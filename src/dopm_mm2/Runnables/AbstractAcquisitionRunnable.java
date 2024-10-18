@@ -6,6 +6,7 @@ package dopm_mm2.Runnables;
 
 import dopm_mm2.Devices.DeviceManager;
 import dopm_mm2.GUI.dOPM_hostframe;
+import dopm_mm2.util.FileMM;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -156,8 +157,25 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             logErrorWithWindow(String.format(
                     "Failed to get filter and laser info with error %s",
                     e.getMessage()));
-            
         }
+        
+        // Set scan speed variables accordingly for mirror and xystage
+        if (deviceSettings.getUseMaxScanSpeedForMirror()){
+            deviceSettings.setMirrorStageScanSpeed(
+                    deviceSettings.getMaxTriggeredScanSpeed());
+        } else {
+            deviceSettings.setMirrorStageScanSpeed(
+                    deviceSettings.getMirrorStageGlobalScanSpeed());
+        }
+        
+        if (deviceSettings.getUseMaxScanSpeedForXyStage()){
+            deviceSettings.setXyStageScanSpeed(
+                    deviceSettings.getMaxTriggeredScanSpeed());
+        } else {
+            deviceSettings.setXyStageScanSpeed(
+                    deviceSettings.getXyStageGlobalScanSpeed());
+        }
+        
         // Enable external triggering if applicable, 
         // maybe move this for readability?
         if (deviceSettings.getTriggerMode() != 2){
@@ -173,7 +191,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         
         // // // // // // // // // // // // // // // // // // // // // // // // 
         // ACQUISITION SECTION --------------------------------------------- //
-        // --------Do view 1 or view 2 (or both), calls runSingleView------- //
+        // ------- Do view 1 or view 2 (or both), calls runSingleView ------ //
         // // // // // // // // // // // // // // // // // // // // // // // // 
         
         // View 1
@@ -191,12 +209,13 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             //runOneView(-deviceSettings.getOpmAngle());  
             currentViewAngle = -deviceSettings.getOpmAngle();
             try {
+                setStagePositionsToStart("View 1");
                 runSingleView(currentViewAngle);
             } catch (Exception e){
                 logErrorWithWindow(e.getMessage());
             } finally {
                 cleanupAcq();
-                resetStagePositionsToStart("View 1");
+                setStagePositionsToStart("View 1");
             }
 
         }
@@ -210,12 +229,13 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             }
             currentViewAngle = deviceSettings.getOpmAngle();
             try {
+                setStagePositionsToStart("View 2");
                 runSingleView(currentViewAngle);
             } catch (Exception e){
                 logErrorWithWindow(e.getMessage());
             } finally {
                 cleanupAcq();
-                resetStagePositionsToStart("View 2");
+                setStagePositionsToStart("View 2");
             }
         }
         
@@ -243,6 +263,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         
     }
     
+    // perhaps a little redundant atm
     protected void cleanupAcq(){
         runnableLogger.info("Cleaning up acquisition, lasers -> off");
         try {
@@ -269,7 +290,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
      * 
      * @param viewPreset 
      */
-    protected void resetStagePositionsToStart(String viewPreset){
+    protected void setStagePositionsToStart(String viewPreset){
         try {
             core_.setProperty(XYStage, "Velocity", 
                     deviceSettings.getXyStageTravelSpeed());
@@ -297,6 +318,43 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
      * everything consistent */
     protected void stopCameraTriggering() throws Exception{
         core_.setProperty(camName, "TRIGGER SOURCE","INTERNAL");
+    }
+    
+    /** Create datastore for acquisition using the supplied data save path,
+     * filename will be MMStack.
+     * @param customPropertyMap property map to be created in runSingleView,
+     *   use PropertyMaps.builder to build the property map that has e.g. 
+     *   scan length, scan type, trigger distance
+     * @return the empty datastore with metadata
+     * @throws IOException if datastore creation fails (in FileMM)
+     */
+    protected Datastore createDatastore(PropertyMap customPropertyMap) 
+            throws IOException{
+        double storeStartTime = System.currentTimeMillis();
+        Datastore store;
+        String dataSavePath = (new File(dataOutDir, "MMStack")).getAbsolutePath();
+        try {
+            store = FileMM.createDatastore(camName, dataSavePath, true);                
+            // Add view angle to MM property map for datastore metadata
+            PropertyMap myPropertyMap = PropertyMaps.builder().
+                putString("scan type", "stage scanning").
+                putDouble("angle", currentViewAngle).
+                putString("filter", filter).
+                putString("laser", laser).
+                putAll(customPropertyMap).
+                    build();
+
+            SummaryMetadata metaData = mm_.data().summaryMetadataBuilder().
+                    userData(myPropertyMap).build();
+            store.setSummaryMetadata(metaData);
+        } catch (IOException ie){
+            throw new IOException("Failed to create datastore in " + dataSavePath +
+                    " with " + ie.getMessage());
+        }
+        double storeCreationTime = System.currentTimeMillis()-storeStartTime;
+        runnableLogger.info(String.format("Datastore creation time: %.2f ms", 
+                storeCreationTime));
+        return store;
     }
     
     protected Datastore acquireTriggeredDataset(Datastore store, double scanEnd, int nFramesTotal)

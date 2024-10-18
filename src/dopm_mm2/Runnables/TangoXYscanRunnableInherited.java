@@ -30,7 +30,13 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         double scanLengthXY = deviceSettings.getXyStageScanLength();
         String scanAxis = deviceSettings.getXyStageScanAxis();
         double triggerDistanceUm = deviceSettings.getXyStageTriggerDistance();
+        double scanSpeed = deviceSettings.getXyStageScanSpeed();
+
         
+        runnableLogger.info(String.format(
+                "%s stage scan--target scan length: %.1f; "
+                        + "trigger distance: %.1f um",
+                scanAxis, scanLengthXY, triggerDistanceUm));
         // 
         // undershoot so it can reach constant speed
         double scanUndershoot = 10;  // um
@@ -88,7 +94,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         double actualScanLength = actualTriggerScanEndUm - triggerScanStartUm;
         double scanStartUm = triggerScanStartUm - scanUndershoot;
         double scanEndUm = actualTriggerScanEndMillim*1e3 + scanOvershoot;
-        int nFrames = (int)Math.floor(actualScanLength/triggerDistanceUm);
+        int nFrames = (int)(actualScanLength/triggerDistanceUm);
         
         // move to start of scan (a little before trigger range start)
         try {
@@ -107,40 +113,29 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                     scanAxis, e.getMessage()));
         }
         
-        // create datastore
-        double storeStartTime = System.currentTimeMillis();
-        
+        // Create datastore
         Datastore store;
         if (frame_.isSaveImgToDisk()){
-            String dataSavePath = (new File(dataOutDir, "MMStack")).getAbsolutePath();
             try {
-                store = FileMM.createDatastore(camName, dataSavePath, true);                
-                // Add view angle to MM property map for datastore metadata
                 PropertyMap myPropertyMap = PropertyMaps.builder().
                     putString("scan type", "stage scanning").
                     putString("scan axis", scanAxis).
-                    putDouble("angle", currentViewAngle).
-                    putDouble("trigger distance", triggerDistanceUm).
-                    putDouble("scan length", actualScanLength).
-                    putString("filter", filter).
-                    putString("laser", laser).
+                    putDouble("trigger distance um", triggerDistanceUm).
+                    putDouble("scan length um", actualScanLength).
                         build();
-                
-                SummaryMetadata metaData = mm_.data().summaryMetadataBuilder().
-                        userData(myPropertyMap).build();
-                store.setSummaryMetadata(metaData);
+
+                store = createDatastore(myPropertyMap);
+       
             } catch (IOException ie){
-                throw new Exception("Failed to create datastore in " + dataSavePath +
-                        " with " + ie.getMessage());
+                throw ie;
+            } catch (Exception e){
+                throw new Exception ("Unknown error creating datastore: " 
+                        + e.getMessage());
             }
         } else {
             store = mm_.data().createRAMDatastore();
             display = mm_.displays().createDisplay(store);
         }
-        
-        double storeCreationTime = System.currentTimeMillis()-storeStartTime;
-        runnableLogger.info(String.format("Datastore creation time: %.2f ms", 
-                storeCreationTime));
         
         // Enable laser blanking with trigger
         core_.setProperty(DAQDOPort, "Blanking", "On");
@@ -154,13 +149,13 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                 + "[start: %.2f um, frames: %d, end %.2f um]",
                 scanAxis, scanStartUm, nFrames, scanEndUm));
         try {
+            core_.setProperty(XYStage, "Velocity", scanSpeed);
             TangoXYStage.setAxisPosition(XYStage, scanEndUm, scanAxis);
         } catch (Exception e){
             throw new Exception(String.format(
                     "Failed to move stage to %s end scan position %.1f um",
                     scanAxis, scanEndUm));
         }
-        
         // Acquire volume in the trigger loop
         try{
             acquireTriggeredDataset(store, scanEndUm, nFrames);

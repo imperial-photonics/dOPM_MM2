@@ -19,6 +19,8 @@ import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import mmcorej.StrVector;
 import dopm_mm2.util.MMStudioInstance;
+import org.micromanager.Studio;
+import org.micromanager.acquisition.ChannelSpec;
 
 /** DeviceManager: class for handling device names in microManager configuration
  *
@@ -53,23 +55,31 @@ public class DeviceManager {
     private List<Object> laserDAQdevices;
     // Trigger settings
     private int scanType = MIRROR_SCAN;
+    
     private double xyStageScanLength;  // um
     private double xyStageTriggerDistance;  // um
     private String xyStageScanAxis;  // "x" or "y"
+    private boolean useMaxScanSpeedForXyStage = false;
     
     private double mirrorScanLength;  // um
     private double mirrorTriggerDistance;  // um
     private int triggerMode;  // camera setting for triggering (see triggerModeStrings)
     private String[] triggerModeStrings;
-    private boolean useMaxScanSpeed = false;
+    private boolean useMaxScanSpeedForMirror = false;
+    
     private double scanSpeedSafetyFactor;
-    private double maxTriggeredScanSpeed;  // max possible scan speed for triggering config
-
+    // max possible scan speed for current channel
+    private double maxTriggeredScanSpeed;  
+    // max possible scan speed considering all the exposure times in acq
+    // i.e., the lowest of all scan speeds for each channel
+    private double maxGlobalTriggeredScanSpeed;  
+    
     private int[] z_lim;  // unused probably
 
     private String xyStageName;
     private double xyStageTravelSpeed; // mm/s (um/ms)
-    private double xyStageScanSpeed;  //  scan speed used by stages in scanned acq--not travel
+    private double xyStageScanSpeed;  //  acq scan speed for current channel
+    private double xyStageGlobalScanSpeed;  // acq scan speed set same for all channels
     private String xyStageComPort;
     
     private double opmAngle;
@@ -80,6 +90,7 @@ public class DeviceManager {
     private String mirrorStageName;
     private double mirrorStageTravelSpeed;
     private double mirrorStageScanSpeed;  //  scan speed used by stages in scanned acq--not travel
+    private double mirrorStageGlobalScanSpeed;  // acq scan speed set same for all channels
     private String mirrorStageComPort;
     
     private String zStageName;
@@ -95,9 +106,11 @@ public class DeviceManager {
     //Time-lapse settings, TODO
     
     public CMMCore core_ = null;
+    public Studio mm_ = null;
     
     public DeviceManager(){
         core_ = MMStudioInstance.getCore();
+        mm_ = MMStudioInstance.getStudio();
         initVars();
     }
     
@@ -139,13 +152,14 @@ public class DeviceManager {
         mirrorScanLength = 50.0;  // Initialized to 50 um
         mirrorTriggerDistance = 1.0;  // Initialized to 1 um
         triggerMode = 0;  // Initialized to 0 (external trigger w/ global reset)
-        useMaxScanSpeed = false;  // Initialized to false
+        useMaxScanSpeedForMirror = false;  // Initialized to false
         scanSpeedSafetyFactor = 0.95;
         maxTriggeredScanSpeed = 0.01;  // safely slow
 
         xyStageScanLength = 50.0;  // um
         xyStageTriggerDistance = 1.0;  // um
         xyStageScanAxis = "y";  // "x" or "y"
+        useMaxScanSpeedForXyStage = false;
         
         xyStageName = ""; 
         xyStageTravelSpeed = 10.0;
@@ -320,7 +334,17 @@ public class DeviceManager {
     }
     
     public double getCameraReadoutTime() throws Exception{
-        /* Get frame time in ms for camera based on the exposure time and the camera mode */
+       return getCameraReadoutTime(core_.getExposure());
+    }
+    
+    /** Get frame time in ms for camera based on the exposure time and the 
+     * camera mode, this function accepts exposure as param
+     * @param exposureMs
+     * @return camera readout time in ms
+     * @throws Exception 
+     */
+    public double getCameraReadoutTime(double exposureMs) throws Exception{
+        
         int trigger = getTriggerMode();
         //String triggerSource = core_.getProperty(getCameraDeviceName(), "TRIGGER SOURCE");
         Rectangle roi;
@@ -339,21 +363,25 @@ public class DeviceManager {
         // double expMs = getExposureTime();  // ms |
         // -----------------------------------------|
         
-        double expMs = core_.getExposure();  // ms |
-        double exp2Ms = expMs - 3.029411*1e-3;
+        // double expMs = core_.getExposure();  // ms |  now in overloaded func
+        double exp2Ms = exposureMs - 3.029411*1e-3;
         double minReadoutTimeMs = (Vn+1)*oneHMs;
         double readout_time = 0;
         
         switch (trigger){
-            case 0:
-                readout_time = ((Vn+1)*oneHMs+Math.max(0, (expMs*1e3-minReadoutTimeMs))); // in ms
-                break;
-            case 1: // External trigger
+            case 0: // External trigger (e.g. global reset)
                 readout_time = (Vn+Math.ceil(exp2Ms/oneHMs)+4)*oneHMs;  // in ms
                 // readout_time = (Vn+Math.ceil(exp2/oneH)+4)*oneH;  // in ms
                 break;
+            case 1:
+                readout_time = ((Vn+1)*oneHMs+Math.max(0, (exposureMs*1e3-minReadoutTimeMs))); // in ms
+                break;
+            case 2:
+                readout_time = minReadoutTimeMs;
+                break;
         }
-        deviceManagerLogger.info("Calculated camera readout time as " + readout_time + " ms");
+        deviceManagerLogger.info("Calculated camera readout time as " 
+                + readout_time + " ms");
         return readout_time;
     }
     
@@ -383,6 +411,7 @@ public class DeviceManager {
     }
 
     public double getMaxTriggeredScanSpeed() {
+        updateMaxTriggeredScanSpeed();
         return maxTriggeredScanSpeed;
     }
     
@@ -393,15 +422,64 @@ public class DeviceManager {
     }
 
     public void updateMaxTriggeredScanSpeed() {
+        double exp;
         try {
-            setMaxTriggeredScanSpeed(
-                    (getMirrorTriggerDistance()/getCameraReadoutTime())*
+            exp = core_.getExposure();
+            setMaxTriggeredScanSpeed(calculateMaxTriggeredScanSpeed(exp));
+        } catch (Exception e){
+            deviceManagerLogger.severe(
+                    "Failed to get current exposure with: " + e.getMessage());
+        }
+    }
+    
+    /** calculateMaxTriggeredScanSpeed takes custom exposure time 
+     * as input
+     * @param expMs 
+     * @return max triggered scan speed for given exposure
+     */
+    public double calculateMaxTriggeredScanSpeed(double expMs) {
+        try {
+            return ((getMirrorTriggerDistance()/getCameraReadoutTime(expMs))*
                             getScanSpeedSafetyFactor());
         } catch (Exception e){
             deviceManagerLogger.severe("Failed to update max scan speed "
                     + "for triggering with " + e.getMessage());
+            return 0;
         }
     }
+    
+
+    
+    // Loop through channel specs from MDA to get exposures and return the max
+    private double getMaxExposureInAcq(){
+        List<ChannelSpec> acqChannels = mm_.acquisitions().
+                getAcquisitionSettings().channels();
+        double maxExposure = 0;
+        double exp_ = 0;
+        for (int n = 0; n < acqChannels.size(); n++){
+            exp_ = acqChannels.get(n).exposure();
+            if (exp_ > maxExposure){
+                maxExposure = exp_;
+            }
+        }
+        return maxExposure;
+    }
+
+    public double getMaxGlobalTriggeredScanSpeed() {
+        return maxGlobalTriggeredScanSpeed;
+    }
+
+    private void upateMaxGlobalTriggeredScanSpeed(){
+        double globalMaxScanSpeed = 
+                calculateMaxTriggeredScanSpeed(getMaxExposureInAcq());
+        setMaxGlobalTriggeredScanSpeed(globalMaxScanSpeed);
+    }
+    
+    private void setMaxGlobalTriggeredScanSpeed(double globalMaxScanSpeed){
+        maxGlobalTriggeredScanSpeed = globalMaxScanSpeed;
+    }
+    
+    
 
     public List<String> getLaserLabels() {
         return laserLabels;
@@ -454,7 +532,8 @@ public class DeviceManager {
     public void setMirrorTriggerDistance(double mirrorTriggerDistance) {
         this.mirrorTriggerDistance = mirrorTriggerDistance;
         deviceManagerLogger.info("Set triggerDistance to " + mirrorTriggerDistance);
-        updateMaxTriggeredScanSpeed();
+        updateMaxTriggeredScanSpeed();  // the current max speed 
+        upateMaxGlobalTriggeredScanSpeed();  // the lowest max speed across all channels 
     }
 
     public double getXyStageScanLength() {
@@ -471,6 +550,8 @@ public class DeviceManager {
 
     public void setXyStageTriggerDistance(double xyStageTriggerDistance) {
         this.xyStageTriggerDistance = xyStageTriggerDistance;
+        updateMaxTriggeredScanSpeed();
+        upateMaxGlobalTriggeredScanSpeed();
     }
 
     public String getXyStageScanAxis() {
@@ -488,6 +569,7 @@ public class DeviceManager {
 
     public void setTriggerMode(int triggerMode) {
         this.triggerMode = triggerMode;
+        upateMaxGlobalTriggeredScanSpeed();
         updateMaxTriggeredScanSpeed();
     }
 
@@ -500,12 +582,12 @@ public class DeviceManager {
     }
 
     
-    public boolean getUseMaxScanSpeed() {
-        return useMaxScanSpeed;
+    public boolean getUseMaxScanSpeedForMirror() {
+        return useMaxScanSpeedForMirror;
     }
 
-    public void setUseMaxScanSpeed(boolean useMaxScanSpeed) {
-        this.useMaxScanSpeed = useMaxScanSpeed;
+    public void setUseMaxScanSpeedForMirror(boolean useMaxScanSpeedForMirror) {
+        this.useMaxScanSpeedForMirror = useMaxScanSpeedForMirror;
     }
 
     public int[] getZ_lim() {
@@ -543,7 +625,22 @@ public class DeviceManager {
     public void setXyStageScanSpeed(double xyStageScanSpeed) {
         this.xyStageScanSpeed = xyStageScanSpeed;
     }
-    
+
+    public double getXyStageGlobalScanSpeed() {
+        return xyStageGlobalScanSpeed;
+    }
+
+    public void setXyStageGlobalScanSpeed(double xyStageGlobalScanSpeed) {
+        
+        double maxGlobalScanSpeed = getMaxGlobalTriggeredScanSpeed();
+        if (xyStageGlobalScanSpeed > maxGlobalScanSpeed){
+            this.xyStageGlobalScanSpeed = maxGlobalScanSpeed;
+        } else {
+            this.xyStageGlobalScanSpeed = xyStageGlobalScanSpeed;
+        }
+        
+    }
+     
     public String getXyStageComPort() {
         return xyStageComPort;
     }
@@ -551,6 +648,16 @@ public class DeviceManager {
     public void setXyStageComPort(String xyStageComPort) {
         if (!xyStageComPort.equals("")) this.xyStageComPort = xyStageComPort;
     }
+    
+    public boolean getUseMaxScanSpeedForXyStage() {
+        return useMaxScanSpeedForXyStage;
+    }
+
+    public void setUseMaxScanSpeedForXyStage(boolean useMaxScanSpeedForXyStage) {
+        this.useMaxScanSpeedForXyStage = useMaxScanSpeedForXyStage;
+
+    }
+    
 
     public String getMirrorStageName() {
         return mirrorStageName;
@@ -578,7 +685,20 @@ public class DeviceManager {
     }
 
     public void setMirrorStageScanSpeed(double mirrorStageScanSpeed) {
-        this.mirrorStageScanSpeed = mirrorStageScanSpeed;
+        this.mirrorStageScanSpeed = mirrorStageScanSpeed;        
+    }
+
+    public double getMirrorStageGlobalScanSpeed() {
+        return mirrorStageGlobalScanSpeed;
+    }
+
+    public void setMirrorStageGlobalScanSpeed(double mirrorStageGlobalScanSpeed) {
+        double maxGlobalScanSpeed = getMaxGlobalTriggeredScanSpeed();
+        if (mirrorStageGlobalScanSpeed > maxGlobalScanSpeed){
+            this.mirrorStageScanSpeed = maxGlobalScanSpeed;
+        } else {
+            this.mirrorStageGlobalScanSpeed = mirrorStageGlobalScanSpeed;
+        }
     }
     
 
