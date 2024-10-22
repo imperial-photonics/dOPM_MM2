@@ -63,6 +63,39 @@ public class TangoXYStage {
         }
     }
     
+    /** set speed of both Tango axes
+     * 
+     * @param device
+     * @param speed
+     * @throws Exception 
+     */
+    public static void setTangoAxisSpeed(String device, double speed) 
+            throws Exception{
+        setTangoAxisSpeed(device, "x", speed);
+        setTangoAxisSpeed(device, "y", speed);
+    }
+
+    /** set speed of specific Tango axis "x" or "y"
+     * 
+     * @param device
+     * @param axis
+     * @param speed
+     * @throws Exception 
+     */
+    public static void setTangoAxisSpeed(String device, String axis, 
+            double speed) throws Exception{
+        switch(axis){
+            case "x":
+                MMStudioInstance.getCore().setProperty(device, "SpeedX [mm/s]", speed);
+                break;
+            case "y":
+                MMStudioInstance.getCore().setProperty(device, "SpeedY [mm/s]", speed);
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid axis, use x or y"); 
+        }      
+    }
+    
     // Generic move command in millimeters, tango uses um units (or 10s of um?)
     public static void setTangoXYPositionMillim(
             String device, double[] position) throws Exception{

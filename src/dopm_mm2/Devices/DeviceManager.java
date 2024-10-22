@@ -20,7 +20,9 @@ import mmcorej.CMMCore;
 import mmcorej.StrVector;
 import dopm_mm2.util.MMStudioInstance;
 import org.micromanager.Studio;
+import org.micromanager.acquisition.AcquisitionManager;
 import org.micromanager.acquisition.ChannelSpec;
+import org.micromanager.acquisition.SequenceSettings;
 
 /** DeviceManager: class for handling device names in microManager configuration
  *
@@ -78,7 +80,7 @@ public class DeviceManager {
 
     private String xyStageName;
     private double xyStageTravelSpeed; // mm/s (um/ms)
-    private double xyStageScanSpeed;  //  acq scan speed for current channel
+    private double xyStageCurrentScanSpeed;  //  acq scan speed for current channel
     private double xyStageGlobalScanSpeed;  // acq scan speed set same for all channels
     private String xyStageComPort;
     
@@ -89,7 +91,7 @@ public class DeviceManager {
 
     private String mirrorStageName;
     private double mirrorStageTravelSpeed;
-    private double mirrorStageScanSpeed;  //  scan speed used by stages in scanned acq--not travel
+    private double mirrorStageCurrentScanSpeed;  //  scan speed used by stages in scanned acq--not travel
     private double mirrorStageGlobalScanSpeed;  // acq scan speed set same for all channels
     private String mirrorStageComPort;
     
@@ -120,6 +122,7 @@ public class DeviceManager {
      */
     public DeviceManager(CMMCore cmmcore) {
         core_ = cmmcore;
+        mm_ = MMStudioInstance.getStudio();
         initVars();
         loadAllDeviceNames();  // uMgr StrVector object
     }
@@ -155,6 +158,7 @@ public class DeviceManager {
         useMaxScanSpeedForMirror = false;  // Initialized to false
         scanSpeedSafetyFactor = 0.95;
         maxTriggeredScanSpeed = 0.01;  // safely slow
+        maxGlobalTriggeredScanSpeed = 0.1;
 
         xyStageScanLength = 50.0;  // um
         xyStageTriggerDistance = 1.0;  // um
@@ -163,12 +167,14 @@ public class DeviceManager {
         
         xyStageName = ""; 
         xyStageTravelSpeed = 10.0;
-        xyStageScanSpeed = 0.01;
+        xyStageCurrentScanSpeed = 0.01;
+        xyStageGlobalScanSpeed = 0.01;  // the scan speed used for all channels if useMaxScanSpeed not true
         xyStageComPort = "COM7";
 
         mirrorStageName = "";
         mirrorStageTravelSpeed = 10.0;
-        mirrorStageScanSpeed = 0.01; // safely slow
+        mirrorStageCurrentScanSpeed = 0.01; // safely slow
+        mirrorStageGlobalScanSpeed = 0.01;  // the scan speed used for all channels if useMaxScanSpeed not true
         mirrorStageComPort = "COM3";
 
         zStageName = "";
@@ -176,7 +182,7 @@ public class DeviceManager {
         zStageComPort = "";
         
         imageView1 = true;
-        imageView2 = true;
+        imageView2 = false;
         opmAngle = 45;
         saveAcquisitionLogs = true;
         
@@ -234,21 +240,20 @@ public class DeviceManager {
             /* deviceManagerLogger.info("getting laser dev");
             List<String> lasersLine = parseList(configData.get(0)); */
             
-            List<String> laserLabels = parseList(configData.get(0));
-            String laserDOPort = (parseList(configData.get(1))).get(0);
-            List<String> laserDOLines = parseList(configData.get(2));
-            List<String> laserAOports = parseList(configData.get(3));
-            String filter = (parseList(configData.get(6))).get(0);
-            String XYStage = (parseList(configData.get(7))).get(0);
-            String ZStage = (parseList(configData.get(8))).get(0);
-            String mirrorStage = (parseList(configData.get(9))).get(0);
-            String XYStageCOM = (parseList(configData.get(10))).get(0);
-            String ZStageCOM = (parseList(configData.get(11))).get(0);
-            String mirrorStageCOM = (parseList(configData.get(12))).get(0);
+            List<String> laserLabs = parseList(configData.get(1));
+            String laserDOPort = (parseList(configData.get(2))).get(0);
+            List<String> laserDOLines = parseList(configData.get(3));
+            List<String> laserAOports = parseList(configData.get(4));
+            String filter = (parseList(configData.get(7))).get(0);
+            String XYStage = (parseList(configData.get(8))).get(0);
+            String ZStage = (parseList(configData.get(9))).get(0);
+            String mirrorStage = (parseList(configData.get(10))).get(0);
+            String XYStageCOM = (parseList(configData.get(11))).get(0);
+            String ZStageCOM = (parseList(configData.get(12))).get(0);
+            String mirrorStageCOM = (parseList(configData.get(13))).get(0);
 
             setLeftCameraName(core_.getCameraDevice());
-            deviceManagerLogger.info("Done setCameraDeviceName");
-            setLaserLabels(laserLabels);
+            setLaserLabels(laserLabs);
             setLaserBlankingDOport(laserDOPort);
             setLaserBlankingDOLines(laserDOLines);
             setLaserPowerAOports(laserAOports);
@@ -303,6 +308,9 @@ public class DeviceManager {
             row.add("");  // add on the value 
         }
         row = row.subList(1,row.size());
+        for (int r_i=0; r_i<row.size(); r_i++){
+            row.set(r_i, row.get(r_i).replaceAll("\\s+",""));
+        }
         
         deviceManagerLogger.info("Devices in config: " + row);
         return row;
@@ -449,11 +457,21 @@ public class DeviceManager {
     }
     
 
-    
+
     // Loop through channel specs from MDA to get exposures and return the max
-    private double getMaxExposureInAcq(){
-        List<ChannelSpec> acqChannels = mm_.acquisitions().
-                getAcquisitionSettings().channels();
+    private double getMaxExposureInAcq() throws Exception{
+        deviceManagerLogger.info("in getMaxExposure");
+        List<ChannelSpec> acqChannels;
+        try {
+            AcquisitionManager aqcm = mm_.getAcquisitionManager();
+            SequenceSettings acqSettings = mm_.getAcquisitionManager().getAcquisitionSettings();
+            acqChannels = mm_.getAcquisitionManager().getAcquisitionSettings().
+                    channels();
+        } catch (Exception e){
+            deviceManagerLogger.severe("Failed to get ChannelSpec with: " + 
+                    e.getMessage() + " check if MDA is open?");
+            throw e;
+        }
         double maxExposure = 0;
         double exp_ = 0;
         for (int n = 0; n < acqChannels.size(); n++){
@@ -465,20 +483,31 @@ public class DeviceManager {
         return maxExposure;
     }
 
+    // just returns result of update 
     public double getMaxGlobalTriggeredScanSpeed() {
+        upateMaxGlobalTriggeredScanSpeed();
         return maxGlobalTriggeredScanSpeed;
     }
 
-    private void upateMaxGlobalTriggeredScanSpeed(){
+    public void upateMaxGlobalTriggeredScanSpeed(){
+        double maxExp;
+        try {
+            maxExp = getMaxExposureInAcq();
+        } catch (Exception e){
+            deviceManagerLogger.severe("Failed to update "
+                    + "maxGlobalTriggeredScanSpeed with: " + e.getMessage());
+            return;
+        }
+        deviceManagerLogger.info("Max exposure in acq: " + maxExp);
         double globalMaxScanSpeed = 
-                calculateMaxTriggeredScanSpeed(getMaxExposureInAcq());
+                calculateMaxTriggeredScanSpeed(maxExp);
+        deviceManagerLogger.info("globalMaxScanSpeed: " + globalMaxScanSpeed);
         setMaxGlobalTriggeredScanSpeed(globalMaxScanSpeed);
     }
     
     private void setMaxGlobalTriggeredScanSpeed(double globalMaxScanSpeed){
         maxGlobalTriggeredScanSpeed = globalMaxScanSpeed;
     }
-    
     
 
     public List<String> getLaserLabels() {
@@ -487,6 +516,7 @@ public class DeviceManager {
 
     public void setLaserLabels(List<String> laserLabels) {
         this.laserLabels = laserLabels;
+        deviceManagerLogger.info("set laser labels to " + laserLabels);
     }
     
     
@@ -532,8 +562,8 @@ public class DeviceManager {
     public void setMirrorTriggerDistance(double mirrorTriggerDistance) {
         this.mirrorTriggerDistance = mirrorTriggerDistance;
         deviceManagerLogger.info("Set triggerDistance to " + mirrorTriggerDistance);
-        updateMaxTriggeredScanSpeed();  // the current max speed 
-        upateMaxGlobalTriggeredScanSpeed();  // the lowest max speed across all channels 
+        updateMaxTriggeredScanSpeed();  // the current max speed based on current exposure time
+        upateMaxGlobalTriggeredScanSpeed();  // the lowest max speed across all channels/exposure times
     }
 
     public double getXyStageScanLength() {
@@ -605,6 +635,7 @@ public class DeviceManager {
     public void setXyStageName(String xyStageName) {
         if (!xyStageName.equals("")) {
             this.xyStageName = xyStageName;
+            deviceManagerLogger.info("Set XY stage name to " + xyStageName);
             // get port from property, note that resetting stagename will set COM port to ""
             setXyStageComPort(getPort(xyStageName));
         }
@@ -618,12 +649,12 @@ public class DeviceManager {
         this.xyStageTravelSpeed = xyStageTravelSpeed;
     }
 
-    public double getXyStageScanSpeed() {
-        return xyStageScanSpeed;
+    public double getXyStageCurrentScanSpeed() {
+        return xyStageCurrentScanSpeed;
     }
 
-    public void setXyStageScanSpeed(double xyStageScanSpeed) {
-        this.xyStageScanSpeed = xyStageScanSpeed;
+    public void setXyStageCurrentScanSpeed(double xyStageCurrentScanSpeed) {
+        this.xyStageCurrentScanSpeed = xyStageCurrentScanSpeed;
     }
 
     public double getXyStageGlobalScanSpeed() {
@@ -666,6 +697,8 @@ public class DeviceManager {
     public void setMirrorStageName(String mirrorStageName) {
         if (!mirrorStageName.equals("")){
             this.mirrorStageName = mirrorStageName;
+            deviceManagerLogger.info("Set mirror stage device name to " 
+                    + mirrorStageName);
             setMirrorStageComPort(getPort(mirrorStageName));
         }
     }
@@ -680,12 +713,12 @@ public class DeviceManager {
         // DeviceManager.setMirrorStageSpeed(mirrorStageTravelSpeed);
     }
 
-    public double getMirrorStageScanSpeed() {
-        return mirrorStageScanSpeed;
+    public double getMirrorStageCurrentScanSpeed() {
+        return mirrorStageCurrentScanSpeed;
     }
 
-    public void setMirrorStageScanSpeed(double mirrorStageScanSpeed) {
-        this.mirrorStageScanSpeed = mirrorStageScanSpeed;        
+    public void setMirrorStageCurrentScanSpeed(double mirrorStageCurrentScanSpeed) {
+        this.mirrorStageCurrentScanSpeed = mirrorStageCurrentScanSpeed;        
     }
 
     public double getMirrorStageGlobalScanSpeed() {
@@ -695,10 +728,13 @@ public class DeviceManager {
     public void setMirrorStageGlobalScanSpeed(double mirrorStageGlobalScanSpeed) {
         double maxGlobalScanSpeed = getMaxGlobalTriggeredScanSpeed();
         if (mirrorStageGlobalScanSpeed > maxGlobalScanSpeed){
-            this.mirrorStageScanSpeed = maxGlobalScanSpeed;
+            this.mirrorStageCurrentScanSpeed = maxGlobalScanSpeed;
         } else {
             this.mirrorStageGlobalScanSpeed = mirrorStageGlobalScanSpeed;
         }
+        deviceManagerLogger.info(String.format(
+                "set global mirror scan speed to %.4f mm/s", 
+                this.mirrorStageGlobalScanSpeed));
     }
     
 
@@ -854,7 +890,7 @@ public class DeviceManager {
     public void setFilterDeviceName(String filterDeviceName) {
         if (checkInDeviceList(filterDeviceName)){
             this.filterDeviceName = filterDeviceName;
-            deviceManagerLogger.info("Filter device set to" + filterDeviceName);
+            deviceManagerLogger.info("Filter device set to " + filterDeviceName);
 
         }
     }
@@ -870,31 +906,7 @@ public class DeviceManager {
         }
     }
 
-    public int getCurrentAcqChannel() {
-        return currentAcqChannel;
-    }
     
-    public void nextChannel(){
-        
-        int nextChan = getCurrentAcqChannel() + 1;
-        if (nextChan >= getLaserChannelsAcq().size()){
-            nextChan = 0;
-            deviceManagerLogger.info("Returning to first channel in acq list");
-        }
-        setCurrentAcqChannel(nextChan);
-    }
-
-    public void setCurrentAcqChannel(int currentAcqChannel) throws 
-            IndexOutOfBoundsException {
-        if (currentAcqChannel >= laserChannelsAcq.size()){
-            String errMsg = "Attempted to set current acquisition channel "
-                    + "outside bounds of the acquisiton channel list";
-            deviceManagerLogger.severe(errMsg);
-            throw new IndexOutOfBoundsException(errMsg);
-        } else {
-            this.currentAcqChannel = currentAcqChannel;
-        }
-    }
     
     public StrVector getDeviceList() {
         return deviceList;

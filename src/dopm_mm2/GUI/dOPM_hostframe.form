@@ -19,6 +19,14 @@
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="openDeviceConfigMenuItemActionPerformed"/>
               </Events>
             </MenuItem>
+            <MenuItem class="javax.swing.JMenuItem" name="clearLogsMenuItem">
+              <Properties>
+                <Property name="text" type="java.lang.String" value="Clear dOPM logs"/>
+              </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="clearLogsMenuItemActionPerformed"/>
+              </Events>
+            </MenuItem>
           </SubComponents>
         </Menu>
         <Menu class="javax.swing.JMenu" name="jMenu2">
@@ -359,7 +367,7 @@
                               <Component id="mirrorScanLengthField" alignment="0" pref="0" max="32767" attributes="0"/>
                               <Component id="mirrorScanIntervalField" alignment="0" max="32767" attributes="0"/>
                               <Group type="102" alignment="0" attributes="0">
-                                  <Component id="mirrorScanSpeedField" min="-2" max="-2" attributes="0"/>
+                                  <Component id="mirrorScanSpeedField" min="-2" pref="100" max="-2" attributes="0"/>
                                   <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                               </Group>
                           </Group>
@@ -368,8 +376,8 @@
                           <EmptySpace max="-2" attributes="0"/>
                           <Component id="jLabel1" min="-2" max="-2" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
-                          <Component id="jTextField1" min="-2" pref="60" max="-2" attributes="0"/>
-                          <EmptySpace min="-2" pref="58" max="-2" attributes="0"/>
+                          <Component id="jTextField1" min="-2" pref="70" max="-2" attributes="0"/>
+                          <EmptySpace min="-2" pref="48" max="-2" attributes="0"/>
                       </Group>
                   </Group>
                 </DimensionLayout>
@@ -412,7 +420,7 @@
                 <Component class="javax.swing.JTextField" name="mirrorScanSpeedField">
                   <Properties>
                     <Property name="text" type="java.lang.String" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                      <Connection code="String.format(&quot;%.4f&quot;, deviceSettings.getMirrorStageScanSpeed())" type="code"/>
+                      <Connection code="String.format(&quot;%.4f&quot;, deviceSettings.getMirrorStageGlobalScanSpeed())" type="code"/>
                     </Property>
                     <Property name="actionCommand" type="java.lang.String" value="&lt;Not Set&gt;"/>
                     <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
@@ -525,7 +533,7 @@
                 <Component class="javax.swing.JTextField" name="xyScanSpeedField">
                   <Properties>
                     <Property name="text" type="java.lang.String" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                      <Connection code="String.format(&quot;%.4f&quot;, deviceSettings.getMirrorStageScanSpeed())" type="code"/>
+                      <Connection code="String.format(&quot;%.4f&quot;, deviceSettings.getXyStageCurrentScanSpeed())" type="code"/>
                     </Property>
                     <Property name="actionCommand" type="java.lang.String" value="&lt;Not Set&gt;"/>
                     <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
@@ -639,6 +647,9 @@
         </Component>
         <Component class="javax.swing.JCheckBox" name="view1CheckBox">
           <Properties>
+            <Property name="selected" type="boolean" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+              <Connection code="deviceSettings.isView1Imaged()" type="code"/>
+            </Property>
             <Property name="text" type="java.lang.String" value="View 1"/>
           </Properties>
           <Events>
@@ -647,6 +658,9 @@
         </Component>
         <Component class="javax.swing.JCheckBox" name="view2CheckBox">
           <Properties>
+            <Property name="selected" type="boolean" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+              <Connection code="deviceSettings.isView2Imaged()" type="code"/>
+            </Property>
             <Property name="text" type="java.lang.String" value="View 2"/>
           </Properties>
           <Events>

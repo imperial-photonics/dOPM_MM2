@@ -5,13 +5,15 @@
 package dopm_mm2.Runnables;
 
 import dopm_mm2.Devices.DeviceManager;
+import dopm_mm2.Devices.TangoXYStage;
 import dopm_mm2.GUI.dOPM_hostframe;
 import dopm_mm2.util.FileMM;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.FileHandler;
@@ -22,7 +24,10 @@ import mmcorej.CMMCore;
 import mmcorej.TaggedImage;
 import org.micromanager.PropertyMap;
 import org.micromanager.PropertyMaps;
+import org.micromanager.StagePosition;
+import org.micromanager.PositionList;
 import org.micromanager.Studio;
+import org.micromanager.acquisition.SequenceSettings;
 import org.micromanager.data.Coords;
 import org.micromanager.data.Datastore;
 import org.micromanager.data.Image;
@@ -55,15 +60,18 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     protected String filter;
     protected String laser;
     protected List<String> lasers;
+    protected StagePosition stagePosition;
+    protected PositionList positionList;
     
     protected final String XYStagePort;
     protected final String mirrorStagePort;
     protected final String DAQDOPort;
     
     // starting stage positions:
-    protected double startingXPosition;
-    protected double startingYPosition;
-    protected double startingMirrorPosition;
+    protected double startingXPositionUm;
+    protected double startingYPositionUm;
+    protected double startingZpositionUm;
+    protected double startingMirrorPositionUm;
     
     protected double volumeScanLength;
     
@@ -87,12 +95,21 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         filterWheel = deviceSettings.getFilterDeviceName();
         DAQDOPort = deviceSettings.getLaserBlankingDOport();
         
+        runnableLogger.info(String.format("Variables: "
+                + "camera %s, "
+                + "mirror stage; %s, "
+                + "xy stage; %s, "
+                + "z stage; %s, "
+                + "filter wheel; %s, "
+                + "DAQ DO port; %s",
+                camName, mirrorStage, XYStage, ZStage, filterWheel, DAQDOPort));
+        
         List<String> laserLabels = deviceSettings.getLaserLabels();
         List<String> laserDeviceNames = deviceSettings.getLaserDeviceNames();
         
-        if (laserLabels.isEmpty()){
+        if (!laserLabels.isEmpty()){
             lasers = laserDeviceNames;
-        } else if (laserDeviceNames.isEmpty()){
+        } else if (!laserDeviceNames.isEmpty()){
             lasers = laserLabels;
         } else {
             runnableLogger.warning(
@@ -106,6 +123,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     
     @Override
     public void run(){
+        runnableLogger.info("In runnable's run()");
         // Create log file
         try { 
             LocalDateTime date = LocalDateTime.now(); // Create a date object
@@ -131,15 +149,12 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             runnableLogger.severe("Failed to create dirs " + se.getMessage());
         }     
         
-        // Get start positions
+        // Make camera fast
         try {
-            startingXPosition = core_.getXPosition();
-            startingYPosition = core_.getYPosition();
-            startingMirrorPosition = core_.getPosition(mirrorStage)*1e-3;
+            core_.setProperty(camName, "ScanMode", 3);
         } catch (Exception e){
-            runnableLogger.severe(String.format(
-                    "Failed to get starting stage positions with %s",
-                    e.getMessage()));
+            runnableLogger.severe("Failed to set camera scanmode to fast: " 
+                    + e.getMessage());
         }
         
         // Get channel info
@@ -148,9 +163,11 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             int laserState = Integer.parseInt(
                     core_.getProperty(DAQDOPort, "State"));
             int laserIdx = (int)(Math.log(laserState)/Math.log(2));
+            runnableLogger.info("laserIdx: " + laserIdx);
             if (lasers.isEmpty()) {
                 laser = String.valueOf(laserIdx);
             } else {
+                runnableLogger.info("lasers: " + lasers);
                 laser = lasers.get(laserIdx);
             }
         } catch (Exception e){
@@ -159,20 +176,28 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     e.getMessage()));
         }
         
+        // get position info ? how?  
+        // deviceSettings.getCurrentChannelIndex();
+        // deviceSettings.getCurrenPositionIndex();
+        // deviceSettings.getCurrentZIndex();
+        
         // Set scan speed variables accordingly for mirror and xystage
+        deviceSettings.upateMaxGlobalTriggeredScanSpeed();
         if (deviceSettings.getUseMaxScanSpeedForMirror()){
-            deviceSettings.setMirrorStageScanSpeed(
+            deviceSettings.setMirrorStageCurrentScanSpeed(
                     deviceSettings.getMaxTriggeredScanSpeed());
         } else {
-            deviceSettings.setMirrorStageScanSpeed(
+            runnableLogger.info("setting mirror scan speed to " + 
+                    deviceSettings.getMirrorStageGlobalScanSpeed());
+            deviceSettings.setMirrorStageCurrentScanSpeed(
                     deviceSettings.getMirrorStageGlobalScanSpeed());
         }
         
         if (deviceSettings.getUseMaxScanSpeedForXyStage()){
-            deviceSettings.setXyStageScanSpeed(
+            deviceSettings.setXyStageCurrentScanSpeed(
                     deviceSettings.getMaxTriggeredScanSpeed());
         } else {
-            deviceSettings.setXyStageScanSpeed(
+            deviceSettings.setXyStageCurrentScanSpeed(
                     deviceSettings.getXyStageGlobalScanSpeed());
         }
         
@@ -200,6 +225,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             // PIViewPositions.txt (TODO)
             try { 
                 core_.setConfig("dOPM View", "View 1");
+                core_.waitForConfig("dOPM View", "View 1");
             } catch (Exception e){
                 runnableLogger.severe("Failed to change to view 1, "
                         + "check config dOPM View exists with preset View 1");
@@ -209,13 +235,13 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             //runOneView(-deviceSettings.getOpmAngle());  
             currentViewAngle = -deviceSettings.getOpmAngle();
             try {
-                setStagePositionsToStart("View 1");
+                storeStageStartingPositions();
                 runSingleView(currentViewAngle);
             } catch (Exception e){
-                logErrorWithWindow(e.getMessage());
+                logErrorWithWindow(e);
             } finally {
                 cleanupAcq();
-                setStagePositionsToStart("View 1");
+                setStagePositionsToStart();
             }
 
         }
@@ -223,19 +249,20 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         if (deviceSettings.isView2Imaged()){
             try { 
                 core_.setConfig("dOPM View", "View 2");
+                core_.waitForConfig("dOPM View", "View 2");
             } catch (Exception e){
                 runnableLogger.severe("Failed to change to view 2, "
                         + "check config dOPM View exists with preset View 2");
             }
             currentViewAngle = deviceSettings.getOpmAngle();
             try {
-                setStagePositionsToStart("View 2");
+                storeStageStartingPositions();
                 runSingleView(currentViewAngle);
             } catch (Exception e){
-                logErrorWithWindow(e.getMessage());
+                logErrorWithWindow(e);
             } finally {
                 cleanupAcq();
-                setStagePositionsToStart("View 2");
+                setStagePositionsToStart();
             }
         }
         
@@ -252,7 +279,20 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     public void runSingleView(double currentViewAngle) throws Exception{
         // MAIN BODY OF CODE GOES HERE, use @Override
     }
-    
+
+    protected void logErrorWithWindow(Exception e){
+        StringWriter sw = new StringWriter();
+        e.printStackTrace(new PrintWriter(sw));
+        String exceptionString = sw.toString();
+        
+        runnableLogger.severe(exceptionString);
+        
+        JOptionPane.showMessageDialog(null, 
+                              "Acquisition failed: " + e.getMessage(), 
+                              "Acquisition Error", 
+                              JOptionPane.ERROR_MESSAGE);
+    }
+        
     protected void logErrorWithWindow(String msg){
         runnableLogger.severe(msg);
         
@@ -261,6 +301,20 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                               "Acquisition Error", 
                               JOptionPane.ERROR_MESSAGE);
         
+    }
+    protected void storeStageStartingPositions() throws Exception{
+        // Get start positions
+        try {
+            startingXPositionUm = core_.getXPosition(XYStage);
+            startingYPositionUm = core_.getYPosition(XYStage);
+            if (!ZStage.equals("")) startingZpositionUm = core_.getPosition(ZStage);
+            startingMirrorPositionUm = core_.getPosition(mirrorStage);  // um
+        } catch (Exception e){
+            runnableLogger.severe(String.format(
+                    "Failed to get starting stage positions with %s",
+                    e.getMessage()));
+            throw e;
+        }
     }
     
     // perhaps a little redundant atm
@@ -288,16 +342,16 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     
     /** Reset stage positions and change them to the travel speed (fast)
      * 
-     * @param viewPreset 
      */
-    protected void setStagePositionsToStart(String viewPreset){
+    protected void setStagePositionsToStart(){
         try {
-            core_.setProperty(XYStage, "Velocity", 
-                    deviceSettings.getXyStageTravelSpeed());
+            TangoXYStage.setTangoAxisSpeed(
+                    XYStage, deviceSettings.getXyStageTravelSpeed());
+
             core_.setProperty(mirrorStage, "Velocity", 100);
-            core_.setXYPosition(
-                XYStage, startingXPosition, startingYPosition);
-            core_.setConfig("dOPM View", viewPreset);
+            core_.setXYPosition(XYStage, startingXPositionUm, startingYPositionUm);
+            if (!ZStage.equals("")) core_.setPosition(ZStage, startingZpositionUm);
+            core_.setPosition(mirrorStage, startingMirrorPositionUm);
         } catch (Exception e){
             logErrorWithWindow("Failed to reset stage "
                     + "positions after acquisition with " + 
@@ -341,6 +395,9 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 putDouble("angle", currentViewAngle).
                 putString("filter", filter).
                 putString("laser", laser).
+                putDouble("x", startingXPositionUm).
+                putDouble("y", startingYPositionUm).
+                putDouble("z", startingZpositionUm).
                 putAll(customPropertyMap).
                     build();
 
@@ -380,32 +437,32 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
 
                 grabbed = false;
                 while(toc-tic < frameTimeout && !grabbed){
-                        // wait for an image in the circular buffer
-                        if (core_.getRemainingImageCount() > 0){
-                            TaggedImage img = core_.popNextTaggedImage();	// TaggedImage
-                            // runnableLogger.info("Got tagged image:" + nFrames);
-                            Image tmp = mm_.data().convertTaggedImage(img);  // Image 
-                            // does this copy in memory? inefficient?
-                            Image cbImg = tmp.copyAtCoords(cb.z(nFrames).build());
-                            store.putImage(cbImg);
-                            grabbed = true;
-                            nFrames++;
-                        }
-                        toc = System.currentTimeMillis(); 
+                    // wait for an image in the circular buffer
+                    if (core_.getRemainingImageCount() > 0){
+                        TaggedImage img = core_.popNextTaggedImage();	// TaggedImage
+                        // runnableLogger.info("Got tagged image:" + nFrames);
+                        Image tmp = mm_.data().convertTaggedImage(img);  // Image 
+                        // does this copy in memory? inefficient?
+                        Image cbImg = tmp.copyAtCoords(cb.z(nFrames).build());
+                        store.putImage(cbImg);
+                        grabbed = true;
+                        nFrames++;
+                    }
+                    toc = System.currentTimeMillis(); 
                 }
                 if (toc-tic >= frameTimeout){
-                        runnableLogger.severe(String.format(
-                                "%d FRAMES DROPPED", (nFramesTotal-nFrames)));
-                        timeout = true;  // actually redundant
-                        if (nFrames==0){
-                            throw new TimeoutException("No frames acquired in triggered "
-                                + "acquisition. Check hardware and wiring");
-                        } else {
-                            throw new TimeoutException((nFramesTotal-nFrames) + 
-                                    "frames dropped in triggered acquisition,"
-                                    + "check camera speed settings, trigger "
-                                    + "distance, exposure, scan speed");
-                        }
+                    runnableLogger.severe(String.format(
+                            "%d FRAMES DROPPED", (nFramesTotal-nFrames)));
+                    timeout = true;  // actually redundant
+                    if (nFrames==0){
+                        throw new TimeoutException("No frames acquired in triggered "
+                            + "acquisition. Check hardware and wiring");
+                    } else {
+                        throw new TimeoutException((nFramesTotal-nFrames) + 
+                                " frames dropped in triggered acquisition, "
+                                + "check camera speed settings, trigger "
+                                + "distance, exposure, scan speed");
+                    }
                 }
                 frameTimeTotal += (toc-tic);
         }

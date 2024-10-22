@@ -113,7 +113,7 @@ public class PIScanRunnable implements Runnable {
         cmdTerm = "\n"; 
         
         scanLengthMillim = deviceSettings.getMirrorScanLength()*1e-3;  // target scan end in mm
-        scanSpeed = deviceSettings.getMirrorStageScanSpeed();  // scan speed in mm/s or um/ms
+        scanSpeed = deviceSettings.getMirrorStageCurrentScanSpeed();  // scan speed in mm/s or um/ms
         trigDistMillim = deviceSettings.getMirrorTriggerDistance()*1e-3;  // trigger distance in um
         exposure = deviceSettings.getExposureTime();
         currentViewAngle = 0;

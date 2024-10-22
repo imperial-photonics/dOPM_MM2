@@ -30,7 +30,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         double scanLengthXY = deviceSettings.getXyStageScanLength();
         String scanAxis = deviceSettings.getXyStageScanAxis();
         double triggerDistanceUm = deviceSettings.getXyStageTriggerDistance();
-        double scanSpeed = deviceSettings.getXyStageScanSpeed();
+        double scanSpeed = deviceSettings.getXyStageCurrentScanSpeed();
 
         
         runnableLogger.info(String.format(
@@ -63,10 +63,10 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         double startingScanPosition;
         switch (scanAxis){
             case "x":
-                startingScanPosition = startingXPosition;
+                startingScanPosition = startingXPositionUm;
                 break;
             case "y":
-                startingScanPosition = startingYPosition;
+                startingScanPosition = startingYPositionUm;
                 break;
             default:
                 throw new Exception("scanAxis should be x or y");

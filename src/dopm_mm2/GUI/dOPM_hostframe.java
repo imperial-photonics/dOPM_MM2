@@ -12,7 +12,8 @@ import org.micromanager.ScriptController;
 import org.micromanager.data.Datastore;
 import dopm_mm2.Devices.DeviceManager;
 import dopm_mm2.Runnables.PIScanRunnable;
-import dopm_mm2.Runnables.mdaTestRunnable;
+import dopm_mm2.Runnables.PIScanRunnableInherited;
+import dopm_mm2.Runnables.snapGeneralVolumeRunnable;
 import dopm_mm2.util.MMStudioInstance;
 import java.io.File;
 import java.io.IOException;
@@ -38,6 +39,8 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     // TODO: save this to a file
     private static final Logger rootLogger = 
         Logger.getLogger("");
+    private File dopm_mm2Logdir;
+    private File dopm_mm2Logfile;
     
     public Thread testPIVolumeThread;
     private boolean interruptFlag;
@@ -83,7 +86,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         settingsFolderDir = new File(baseFolderDir, "settings");
         
         defaultConfigFile = new File("C:\\Users\\CRICKOPMuser\\Documents\\" + 
-                "Leo\\micromanager\\dopm_plugin\\deviceConfigDaqTest.csv").getAbsoluteFile();
+                "Leo\\micromanager\\dopm_plugin\\defaultDeviceConfig.csv").getAbsoluteFile();
                 
         deviceSettings = new DeviceManager(core_);
         deviceSettings.loadDeviceNames(defaultConfigFile);
@@ -106,10 +109,10 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             String formattedDate = date.format(myFormatObj);
             
             String appdata = System.getenv("APPDATA");
-            File dopm_mm2Logdir = new File(appdata, "../Local/Micro-Manager/dopmLogs");
+            dopm_mm2Logdir = new File(appdata, "../Local/Micro-Manager/dopmLogs");
             dopm_mm2Logdir.mkdir();
-            File dopm_mm2Logfile = new File(dopm_mm2Logdir, String.format(
-                    "dopmRootLog%s.txt", formattedDate));
+            dopm_mm2Logfile = new File(dopm_mm2Logdir, String.format(
+                    "dopmRootLog%s.log", formattedDate));
             
             FileHandler fh = new FileHandler(dopm_mm2Logfile.getAbsolutePath());
  
@@ -188,6 +191,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         jMenuBar1 = new javax.swing.JMenuBar();
         jMenu1 = new javax.swing.JMenu();
         openDeviceConfigMenuItem = new javax.swing.JMenuItem();
+        clearLogsMenuItem = new javax.swing.JMenuItem();
         jMenu2 = new javax.swing.JMenu();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
@@ -295,7 +299,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
-        mirrorScanSpeedField.setText(String.format("%.4f", deviceSettings.getMirrorStageScanSpeed()));
+        mirrorScanSpeedField.setText(String.format("%.4f", deviceSettings.getMirrorStageGlobalScanSpeed()));
         mirrorScanSpeedField.setActionCommand("<Not Set>");
         mirrorScanSpeedField.setInputVerifier(new typeVerifierDouble());
         mirrorScanSpeedField.addActionListener(new java.awt.event.ActionListener() {
@@ -334,15 +338,15 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                     .addComponent(mirrorScanLengthField, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
                     .addComponent(mirrorScanIntervalField)
                     .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
-                        .addComponent(mirrorScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(mirrorScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(0, 0, Short.MAX_VALUE)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(mirrorMaxSpeedCheckBox)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jLabel1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(58, 58, 58))
+                .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, 70, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(48, 48, 48))
         );
         mirrorScanSettingsPanelLayout.setVerticalGroup(
             mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -371,7 +375,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
-        xyScanSpeedField.setText(String.format("%.4f", deviceSettings.getMirrorStageScanSpeed()));
+        xyScanSpeedField.setText(String.format("%.4f", deviceSettings.getXyStageCurrentScanSpeed()));
         xyScanSpeedField.setActionCommand("<Not Set>");
         xyScanSpeedField.setInputVerifier(new typeVerifierDouble());
         xyScanSpeedField.setPreferredSize(new java.awt.Dimension(100, 22));
@@ -471,6 +475,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         viewsLabel.setText("Views acquired");
 
+        view1CheckBox.setSelected(deviceSettings.isView1Imaged());
         view1CheckBox.setText("View 1");
         view1CheckBox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -478,6 +483,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
+        view2CheckBox.setSelected(deviceSettings.isView2Imaged());
         view2CheckBox.setText("View 2");
         view2CheckBox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -561,6 +567,14 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         });
         jMenu1.add(openDeviceConfigMenuItem);
 
+        clearLogsMenuItem.setText("Clear dOPM logs");
+        clearLogsMenuItem.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                clearLogsMenuItemActionPerformed(evt);
+            }
+        });
+        jMenu1.add(clearLogsMenuItem);
+
         jMenuBar1.add(jMenu1);
 
         jMenu2.setText("Edit");
@@ -638,19 +652,27 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_stopButtonActionPerformed
 
     private void startButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_startButtonActionPerformed
-        // run the runnable
-        // PIScanRunnable mirrorScanRunnable = new PIScanRunnable(this);
-        PIScanRunnable mirrorScanRunnable = new PIScanRunnable(this); 
+        // run the runnable        
+        int scanType = deviceSettings.getScanType();
+        
+        // Method that uses the MDA sequencer: // // // // // // // // // // //
+        Runnable volumeAcqRunnable = new snapGeneralVolumeRunnable(this, scanType);
+        Thread volumeAcqThread = new Thread(volumeAcqRunnable);
+        volumeAcqThread.start();
+        setRunnableIsRunning(true);
+        
+        // Does this do anything now that we pass runnable to acquisitions()?
+        /*
         Thread mirrorScanRunnableThread = new Thread(mirrorScanRunnable);
-            mirrorScanRunnableThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            mirrorScanRunnableThread.setUncaughtExceptionHandler(
+                    new Thread.UncaughtExceptionHandler() {
             @Override
             public void uncaughtException(Thread t, Throwable e) {
                 // Handle the uncaught exception here (e.g., log it, alert users, etc.)
-                dOPM_hostframeLogger.severe("Exception in thread " + t.getName() + ": " + e.getMessage());
+                dOPM_hostframeLogger.severe("Exception in thread " + t.getName() 
+                        + ": " + e.getMessage());
             }
-        });        
-        mirrorScanRunnableThread.start();
-        setRunnableIsRunning(true);
+        });*/
     }//GEN-LAST:event_startButtonActionPerformed
 
     private void saveToDiskCheckBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveToDiskCheckBoxActionPerformed
@@ -668,10 +690,11 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
     private void snapTestButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_snapTestButtonActionPerformed
         // Runnable testRunnable = new PITriggerTest(core_, mm_);
-        Runnable testRunnable = new mdaTestRunnable(core_, mm_);
-
-        Thread testThread = new Thread(testRunnable);
-        testThread.start();
+        // Runnable testRunnable = new snapGeneralVolumeRunnable(this, "null");
+        // mm_.getAcquisitionManager().attachRunnable(-1, -1, -1, -1, testRunnable);
+        // mm_.getAcquisitionManager().runAcquisitionNonblocking();
+        // Thread testThread = new Thread(testRunnable);
+        // testThread.start();
     }//GEN-LAST:event_snapTestButtonActionPerformed
 
     private void openDeviceConfigMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openDeviceConfigMenuItemActionPerformed
@@ -777,6 +800,23 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             deviceSettings.setView1Imaged(true);
         } else deviceSettings.setView1Imaged(false);
     }//GEN-LAST:event_view1CheckBoxActionPerformed
+
+    private void clearLogsMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clearLogsMenuItemActionPerformed
+        try {
+            File[] files = dopm_mm2Logdir.listFiles((dir, name) -> 
+                    name.endsWith(".log") & !name.equals(dopm_mm2Logfile.getName()));
+            for(File file : files){
+                file.delete();
+            }
+        } catch (SecurityException e){
+            dOPM_hostframeLogger.severe("Failed to delete logs "
+                    + "(access denied probably) with: " + e.getMessage());
+            throw e;
+        } catch (Exception e){
+            dOPM_hostframeLogger.severe("Failed to delete logs with: " + e.getMessage());
+            throw e;
+        }
+    }//GEN-LAST:event_clearLogsMenuItemActionPerformed
 
     
     
@@ -929,6 +969,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton browseDirectoryField;
     private javax.swing.ButtonGroup buttonGroup1;
+    private javax.swing.JMenuItem clearLogsMenuItem;
     private javax.swing.JTextArea debugTextArea;
     private javax.swing.JPanel fileSettingsPanel;
     private javax.swing.JLabel jLabel1;

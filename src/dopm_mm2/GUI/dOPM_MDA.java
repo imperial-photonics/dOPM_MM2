@@ -25,7 +25,6 @@ public class dOPM_MDA extends javax.swing.JFrame {
     }
     
     private void updateLaserComboxBoxEntries(){
-        deviceSettings.getLaser
     }
 
     /**

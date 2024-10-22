@@ -43,20 +43,21 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
 
         double scanLengthUm = deviceSettings.getMirrorScanLength();
         double triggerDistanceUm = deviceSettings.getMirrorTriggerDistance();
-        double triggerDistanceMillim = deviceSettings.getMirrorTriggerDistance();
-        double scanSpeed = deviceSettings.getMirrorStageScanSpeed();
+        double triggerDistanceMillim = triggerDistanceUm*1e-3;
+        double scanSpeed = deviceSettings.getMirrorStageCurrentScanSpeed();
         
-        runnableLogger.info(String.format(
-                "mirror scan--target scan length: %.1f; "
-                        + "trigger distance: %.1f um",
-                scanLengthUm, triggerDistanceUm));
+        runnableLogger.info(String.format("mirror scan: target scan length; %.1f, "
+                        + "trigger distance; %.1f um, scan speed; %.4f, "
+                        + "starting mirror position; %.4f",
+                scanLengthUm, triggerDistanceUm, 
+                scanSpeed, startingMirrorPositionUm));
         // 
         // undershoot so it can reach constant speed
         double scanUndershoot = 10;  // um
         double scanOvershoot = scanUndershoot; 
         
-        double triggerScanStartUm = startingMirrorPosition - scanLengthUm/2;
-        double targetTriggerScanEndUm = startingMirrorPosition + scanLengthUm/2;
+        double triggerScanStartUm = startingMirrorPositionUm - scanLengthUm/2;
+        double targetTriggerScanEndUm = startingMirrorPositionUm + scanLengthUm/2;
         
         // actual scan end with integer number of triggers
         double triggerScanEndUm = triggerScanStartUm + 
@@ -81,7 +82,7 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
  
         try {
             PIStage.stopPIStage(mirrorStagePort);  // need this command so PI stage plays ball
-            PIStage.setPITriggerDistance(mirrorStagePort, PIDeviceID, triggerDistanceUm);
+            PIStage.setPITriggerDistance(mirrorStagePort, PIDeviceID, triggerDistanceMillim);
             PIStage.setPITriggerRange(mirrorStagePort, PIDeviceID, 
                     new double[]{triggerScanStartMillum, triggerScanEndMillim});
         } catch (Exception e){
@@ -137,8 +138,8 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
                 
         // Start stage motion for triggered acquisition
         runnableLogger.info(String.format("Starting PI stage scanning "
-                + "[start: %.2f um, frames: %d, end %.2f um]",
-                scanStartUm, nFrames, scanEndUm));
+                + "[start: %.2f um, frames: %d, end %.2f um], scan speed: %.4f",
+                scanStartUm, nFrames, scanEndUm, scanSpeed));
         try {
             core_.setProperty(mirrorStage, "Velocity", scanSpeed);
             core_.setPosition(mirrorStage, scanEndUm);
@@ -148,6 +149,7 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
                     scanEndUm));
         }
         // Acquire volume in the trigger loop
+        // Maybe we can handle all of this in the abstract class instead
         try{
             acquireTriggeredDataset(store, scanEndUm, nFrames);
         } catch (TimeoutException e){
@@ -157,8 +159,11 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
                     + "acquisition: " + e2.getMessage());
         } finally {
             // Freeze and close datastore
-            store.freeze();
-            if(frame_.isSaveImgToDisk()) store.close();
+            if (store != null){
+                store.freeze();
+                // keep open if RAM datastore
+                if(frame_.isSaveImgToDisk()) store.close();
+            }
         }
         
         // Disable triggering, stop sequence

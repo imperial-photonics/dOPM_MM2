@@ -249,6 +249,9 @@ public class PIStage {
 
         double expectedValueLower = triggerRange[0];
         double expectedValueUpper = triggerRange[1];
+        
+        PIStageLogger.info(String.format("Setting trigger range to [%s, %s]", 
+                lowerRangeStr, upperRangeStr));
 
         try {
             setAndCheckSerial(port, msgLower, queryMsgLower, expectedValueLower);
