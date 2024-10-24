@@ -6,6 +6,7 @@ package dopm_mm2.Runnables;
 
 import dopm_mm2.GUI.dOPM_hostframe;
 import dopm_mm2.Devices.TangoXYStage;
+import dopm_mm2.acquisition.MDAListener;
 import dopm_mm2.util.FileMM;
 import java.io.File;
 import java.io.IOException;
@@ -21,22 +22,25 @@ import org.micromanager.display.DisplayWindow;
  * @author OPMuser
  */
 public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
-    public TangoXYscanRunnableInherited(dOPM_hostframe frame_ref){
-        super(frame_ref);
+    public TangoXYscanRunnableInherited(dOPM_hostframe frame_ref, 
+            MDAListener acqMgr){
+        super(frame_ref, acqMgr);
     }
     @Override
     public void runSingleView(double opmAngle) throws Exception{
         // First, get scan length
-        double scanLengthXY = deviceSettings.getXyStageScanLength();
+        double scanLengthXyUm = deviceSettings.getXyStageScanLength();
         String scanAxis = deviceSettings.getXyStageScanAxis();
         double triggerDistanceUm = deviceSettings.getXyStageTriggerDistance();
         double scanSpeed = deviceSettings.getXyStageCurrentScanSpeed();
 
         
-        runnableLogger.info(String.format(
-                "%s stage scan--target scan length: %.1f; "
-                        + "trigger distance: %.1f um",
-                scanAxis, scanLengthXY, triggerDistanceUm));
+        runnableLogger.info(String.format("%s stage scan \n "
+                        + "target scan length: %.1f; "
+                        + "trigger distance: %.1f um; "
+                        + "scan speed %.4f mm/s; "
+                        + "",
+                scanAxis, scanLengthXyUm, triggerDistanceUm, scanSpeed));
         // 
         // undershoot so it can reach constant speed
         double scanUndershoot = 10;  // um
@@ -72,19 +76,22 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                 throw new Exception("scanAxis should be x or y");
         }  
 
-        double triggerScanStartUm = startingScanPosition - scanLengthXY/2;
-        double targetTriggerScanEndUm = startingScanPosition + scanLengthXY/2;
+        double triggerScanStartUm = startingScanPosition - scanLengthXyUm/2;
+        double targetTriggerScanEndUm = startingScanPosition + scanLengthXyUm/2;
+        
+        
         double[] triggerRangeMillim = new double[]{
             triggerScanStartUm*1e-3, targetTriggerScanEndUm*1e-3};
         
-        double actualTriggerScanEndMillim = targetTriggerScanEndUm*1e-3;
-        double actualTriggerScanEndUm = targetTriggerScanEndUm;  // initial val
+        double actualTriggerScanEndMillim;
+        double actualTriggerScanEndUm;
         
         // Set trigger range for tango to define volume scan length. My function
         // returns the actual scan length for an integer number of triggers
         try {
             actualTriggerScanEndMillim = TangoXYStage.setTangoTriggerRange(
                     XYStagePort, scanAxis, triggerRangeMillim)[1];
+            actualTriggerScanEndUm = actualTriggerScanEndMillim*1e3;
         } catch (Exception e){
             throw new Exception(String.format("Failed to set Tango %s "
                     + "trigger range to [%.4f, ~%.4f] mm with exception %s", 
@@ -93,7 +100,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         }
         double actualScanLength = actualTriggerScanEndUm - triggerScanStartUm;
         double scanStartUm = triggerScanStartUm - scanUndershoot;
-        double scanEndUm = actualTriggerScanEndMillim*1e3 + scanOvershoot;
+        double scanEndUm = actualTriggerScanEndUm + scanOvershoot;
         int nFrames = (int)(actualScanLength/triggerDistanceUm);
         
         // move to start of scan (a little before trigger range start)

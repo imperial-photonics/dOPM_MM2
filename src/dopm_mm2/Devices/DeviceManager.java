@@ -19,6 +19,7 @@ import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import mmcorej.StrVector;
 import dopm_mm2.util.MMStudioInstance;
+import java.util.logging.Level;
 import org.micromanager.Studio;
 import org.micromanager.acquisition.AcquisitionManager;
 import org.micromanager.acquisition.ChannelSpec;
@@ -341,6 +342,94 @@ public class DeviceManager {
         return true;
     }
     
+    
+    public int getCurrentLaserIdx(){
+        deviceManagerLogger.info("Getting laserIdx" );
+        int laserIdx = 0;
+        try {
+            int laserState = Integer.parseInt(
+                    core_.getProperty(laserBlankingDOport, "State"));
+            laserIdx = (int)(Math.log(laserState)/Math.log(2));
+            deviceManagerLogger.info("laserIdx: " + laserIdx);
+            
+        } catch (Exception e){
+            deviceManagerLogger.severe("Couldn't get laser index: " 
+                    + e.toString());
+        }
+        return laserIdx;
+    }
+
+    public String getCurrentLaser(){
+        String laser = "";
+        List<String> lasers = new ArrayList<>();
+        if (!laserLabels.isEmpty()){
+            lasers = laserDeviceNames;
+        } else if (!laserDeviceNames.isEmpty()){
+            lasers = laserLabels;
+        } else {
+            deviceManagerLogger.warning(
+                    "Laser labels and laser device names are both empty! "
+                    + "Metadata for laser will just be an index");
+        }
+        
+        try {
+            int laserIdx = getCurrentLaserIdx();
+            if (laserLabels.isEmpty()) {
+                laser = String.valueOf(laserIdx);
+            } else {
+                deviceManagerLogger.info("lasers: " + lasers);
+                laser = lasers.get(laserIdx);
+            }
+        } catch (Exception e){
+            deviceManagerLogger.severe(String.format(
+                    "Failed to get laser info with error %s",
+                    e.getMessage()));
+        }
+        return laser;
+    }
+
+    public String getCurrentFilter(){
+        String filter = "";
+               
+        try {
+            filter = core_.getProperty(filterDeviceName, "Label");
+        } catch (Exception e){
+            deviceManagerLogger.severe(String.format(
+                    "Failed to get filter info with error %s",
+                    e.getMessage()));
+        }
+        return filter;
+    }
+    
+    public double getCurrentLaserPower(){
+        String device = getCurrentLaser();
+        double power = 0;
+        int currentLaserIdx = getCurrentLaserIdx();
+        if (laserDeviceNames.isEmpty()){
+            deviceManagerLogger.warning("EMPTY laserDeviceNames, "
+                    + "laser powers being controlled by DAQ AO?");
+            try {
+                String aoPort = getLaserPowerAOports().get(currentLaserIdx);
+                // NB: 0 V to 5 V, not 0% to 100%;
+                power = Double.parseDouble(core_.getProperty(aoPort, "Voltage"));
+            } catch (Exception e){
+                deviceManagerLogger.severe("Failed getting DAQ analogue "
+                        + "laser device power: " + e.toString());
+            }
+        } else {
+            try {
+                power = Double.parseDouble(
+                        core_.getProperty(device, "Power SetPoint"));
+
+            } catch (Exception e) {
+                deviceManagerLogger.severe("Failed getting USB "
+                        + "laser device power: " + e.toString());
+            }
+        }
+        return power;
+    }
+            
+    
     public double getCameraReadoutTime() throws Exception{
        return getCameraReadoutTime(core_.getExposure());
     }
@@ -456,7 +545,28 @@ public class DeviceManager {
         }
     }
     
-
+    public void updateCurrentScanSpeedsDuringAcq(){
+    
+        // Set scan speed variables accordingly for mirror and xystage
+        upateMaxGlobalTriggeredScanSpeed();
+        if (getUseMaxScanSpeedForMirror()){
+            setMirrorStageCurrentScanSpeed(
+                    getMaxTriggeredScanSpeed());
+        } else {
+            deviceManagerLogger.info("setting mirror scan speed to " + 
+                    getMirrorStageGlobalScanSpeed());
+            setMirrorStageCurrentScanSpeed(
+                    getMirrorStageGlobalScanSpeed());
+        }
+        
+        if (getUseMaxScanSpeedForXyStage()){
+            setXyStageCurrentScanSpeed(
+                    getMaxTriggeredScanSpeed());
+        } else {
+            setXyStageCurrentScanSpeed(
+                    getXyStageGlobalScanSpeed());
+        }
+    }
 
     // Loop through channel specs from MDA to get exposures and return the max
     private double getMaxExposureInAcq() throws Exception{

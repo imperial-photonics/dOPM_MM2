@@ -34,6 +34,7 @@ public class FileMM {
 	Datastore img_ds;
 	String fileSaveFolderDir = saveDir + "/";
 	// overwrite if retrying for example
+        fileLogger.info("Making dir " + fileSaveFolderDir);
 	new File(fileSaveFolderDir).mkdirs();
 	
 	System.gc();

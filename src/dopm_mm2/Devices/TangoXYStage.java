@@ -63,10 +63,10 @@ public class TangoXYStage {
         }
     }
     
-    /** set speed of both Tango axes
+    /** set speed of both Tango axes (mm/s)
      * 
-     * @param device
-     * @param speed
+     * @param device device name in MMgr
+     * @param speed speed in mm/s
      * @throws Exception 
      */
     public static void setTangoAxisSpeed(String device, double speed) 
@@ -77,9 +77,9 @@ public class TangoXYStage {
 
     /** set speed of specific Tango axis "x" or "y"
      * 
-     * @param device
-     * @param axis
-     * @param speed
+     * @param device device name in MMgr
+     * @param axis "x" or "y"
+     * @param speed speed in mm/s
      * @throws Exception 
      */
     public static void setTangoAxisSpeed(String device, String axis, 
@@ -96,7 +96,12 @@ public class TangoXYStage {
         }      
     }
     
-    // Generic move command in millimeters, tango uses um units (or 10s of um?)
+    /** Generic move command in millimeters, tango uses um units (or 10s of um?)
+     * 
+     * @param device
+     * @param position
+     * @throws Exception 
+     */
     public static void setTangoXYPositionMillim(
             String device, double[] position) throws Exception{
         double posX = position[0]*1e3;
@@ -134,6 +139,12 @@ public class TangoXYStage {
         }
     }
     
+    /** set which tango axis to trigger (x or y)
+     * 
+     * @param port COM port
+     * @param axis "x" or "y"
+     * @throws Exception 
+     */
     public static void setTangoTriggerAxis(String port, String axis) 
                 throws Exception {
         // TODO check min incremental motion i
@@ -168,7 +179,7 @@ public class TangoXYStage {
      * @param port COM port
      * @param axis axis to trigger over, x or y
      * @param desiredTriggerRange desired volume scan range
-     * @return actual trigger range
+     * @return actual trigger range {startTrigger, endTrigger}
      * @throws Exception if setting trigger range fails
      **/
     public static double[] setTangoTriggerRange(String port, String axis,
@@ -190,7 +201,7 @@ public class TangoXYStage {
      * @param axis axis to trigger over, x or y
      * @param desiredTriggerRange desired volume scan range
      * @param triggerDist trigger distance used to calculation trigger range
-     * @return actual trigger range
+     * @return actual trigger range {startTrigger, endTrigger}
      * @throws Exception if setting trigger range fails
      **/
     public static double[] setTangoTriggerRange(String port, String axis,

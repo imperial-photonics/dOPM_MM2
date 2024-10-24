@@ -21,6 +21,7 @@ import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
+import mmcorej.Configuration;
 import mmcorej.TaggedImage;
 import org.micromanager.PropertyMap;
 import org.micromanager.PropertyMaps;
@@ -31,7 +32,12 @@ import org.micromanager.acquisition.SequenceSettings;
 import org.micromanager.data.Coords;
 import org.micromanager.data.Datastore;
 import org.micromanager.data.Image;
+import org.micromanager.data.Metadata;
 import org.micromanager.data.SummaryMetadata;
+
+import org.micromanager.acqj.internal.Engine;
+import com.google.common.collect.Lists;
+import dopm_mm2.acquisition.MDAListener;
 
 /** Abstract class for dOPM runnables, switching between views and calling 
  * runSingleView for each view.
@@ -47,10 +53,12 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     protected final CMMCore core_;
     protected final Studio mm_;
     protected final DeviceManager deviceSettings;
+    protected final MDAListener currentAcq;
     protected double currentViewAngle;
     
     protected String settingsOutDir;
     protected String dataOutDir;
+    protected String acqTimestamp;
 
     protected final String camName;
     protected final String mirrorStage;
@@ -78,14 +86,39 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     protected static final Logger runnableLogger = 
         Logger.getLogger(PIScanRunnable.class.getName());
        
-    public AbstractAcquisitionRunnable(dOPM_hostframe frame_ref) {
+    public AbstractAcquisitionRunnable(dOPM_hostframe frame_ref, 
+            MDAListener acqListener) {
         frame_ = frame_ref;
         mm_ = dOPM_hostframe.mm_;
         core_ = mm_.getCMMCore();
         deviceSettings = frame_.getDeviceSettings();
-        dataOutDir = frame_.getDataFolderDir().getAbsolutePath();
-        settingsOutDir = 
-                    frame_.getSettingsFolderDir().getAbsolutePath();
+        currentAcq = acqListener;
+        
+        LocalDateTime date = LocalDateTime.now(); // Create a date object
+        DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern(
+                    "yyyyMMddhhmmss");
+
+        String formattedDate = date.format(myFormatObj);
+        acqTimestamp = formattedDate;
+        
+        File dataOutRootDir = frame_.getDataFolderDir();//.getAbsolutePath();
+        File settingsRootOutDir = 
+                    frame_.getSettingsFolderDir();//.getAbsolutePath();
+        
+        // make the dirs in a timestamped subdir so it doesn't overwrite
+        dataOutDir = new File(
+                dataOutRootDir, acqTimestamp).getAbsolutePath();
+        settingsOutDir = new File(
+                settingsRootOutDir, acqTimestamp).getAbsolutePath();
+        
+        new File(dataOutDir).mkdirs();
+        new File(settingsOutDir).mkdirs();
+        
+        runnableLogger.info("dataOutDir: " + dataOutDir);
+        runnableLogger.info("settingsOutDir: " + settingsOutDir);
+        
+        // create log file
+        createLog(settingsRootOutDir.getAbsolutePath());
         
         // device variables
         camName = deviceSettings.getLeftCameraName();
@@ -102,52 +135,36 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 + "z stage; %s, "
                 + "filter wheel; %s, "
                 + "DAQ DO port; %s",
-                camName, mirrorStage, XYStage, ZStage, filterWheel, DAQDOPort));
-        
-        List<String> laserLabels = deviceSettings.getLaserLabels();
-        List<String> laserDeviceNames = deviceSettings.getLaserDeviceNames();
-        
-        if (!laserLabels.isEmpty()){
-            lasers = laserDeviceNames;
-        } else if (!laserDeviceNames.isEmpty()){
-            lasers = laserLabels;
-        } else {
-            runnableLogger.warning(
-                    "Laser labels and laser device names are both empty! "
-                    + "Metadata for laser will just be an index");
-        }
+                camName, mirrorStage, XYStage, ZStage, filterWheel, DAQDOPort));   
         
         XYStagePort = deviceSettings.getXyStageComPort();
         mirrorStagePort = deviceSettings.getMirrorStageComPort();
     }
     
-    @Override
-    public void run(){
-        runnableLogger.info("In runnable's run()");
-        // Create log file
+    private void createLog(String logOutDir){
         try { 
-            LocalDateTime date = LocalDateTime.now(); // Create a date object
-            DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern(
-                    "yyyyMMddhhmmss");
-
-            String formattedDate = date.format(myFormatObj);
-
             // Just print log for this runnable for debugging directly
             FileHandler fh = new FileHandler(new File(
-                    settingsOutDir, 
-                    String.format("acqLog%s.txt", formattedDate)).toString());
+                    logOutDir, 
+                    String.format("acqLog%s.txt", acqTimestamp)).toString());
  
             runnableLogger.addHandler(fh);
             SimpleFormatter formatter = new SimpleFormatter();  
             fh.setFormatter(formatter);  
             runnableLogger.info(String.format("Started log for %s at %s", 
-                    this.getClass().getName(), formattedDate));
+                    this.getClass().getName(), logOutDir));
         } catch (IOException ioe){
             runnableLogger.severe("Failed to create log with " + 
                     ioe.getMessage());
         } catch (SecurityException se){
             runnableLogger.severe("Failed to create dirs " + se.getMessage());
         }     
+    }
+    
+    @Override
+    public void run(){
+        runnableLogger.info("In runnable's run()");
+        // Create log file                 
         
         // Make camera fast
         try {
@@ -157,49 +174,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     + e.getMessage());
         }
         
-        // Get channel info
-        try {
-            filter = core_.getProperty(filterWheel, "Label");
-            int laserState = Integer.parseInt(
-                    core_.getProperty(DAQDOPort, "State"));
-            int laserIdx = (int)(Math.log(laserState)/Math.log(2));
-            runnableLogger.info("laserIdx: " + laserIdx);
-            if (lasers.isEmpty()) {
-                laser = String.valueOf(laserIdx);
-            } else {
-                runnableLogger.info("lasers: " + lasers);
-                laser = lasers.get(laserIdx);
-            }
-        } catch (Exception e){
-            logErrorWithWindow(String.format(
-                    "Failed to get filter and laser info with error %s",
-                    e.getMessage()));
-        }
-        
-        // get position info ? how?  
-        // deviceSettings.getCurrentChannelIndex();
-        // deviceSettings.getCurrenPositionIndex();
-        // deviceSettings.getCurrentZIndex();
-        
         // Set scan speed variables accordingly for mirror and xystage
-        deviceSettings.upateMaxGlobalTriggeredScanSpeed();
-        if (deviceSettings.getUseMaxScanSpeedForMirror()){
-            deviceSettings.setMirrorStageCurrentScanSpeed(
-                    deviceSettings.getMaxTriggeredScanSpeed());
-        } else {
-            runnableLogger.info("setting mirror scan speed to " + 
-                    deviceSettings.getMirrorStageGlobalScanSpeed());
-            deviceSettings.setMirrorStageCurrentScanSpeed(
-                    deviceSettings.getMirrorStageGlobalScanSpeed());
-        }
-        
-        if (deviceSettings.getUseMaxScanSpeedForXyStage()){
-            deviceSettings.setXyStageCurrentScanSpeed(
-                    deviceSettings.getMaxTriggeredScanSpeed());
-        } else {
-            deviceSettings.setXyStageCurrentScanSpeed(
-                    deviceSettings.getXyStageGlobalScanSpeed());
-        }
+        deviceSettings.updateCurrentScanSpeedsDuringAcq();
         
         // Enable external triggering if applicable, 
         // maybe move this for readability?
@@ -224,8 +200,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             // this config should be set automatically if it doesnt exist from 
             // PIViewPositions.txt (TODO)
             try { 
-                core_.setConfig("dOPM View", "View 1");
-                core_.waitForConfig("dOPM View", "View 1");
+                currentAcq.setCurrentView(1);
             } catch (Exception e){
                 runnableLogger.severe("Failed to change to view 1, "
                         + "check config dOPM View exists with preset View 1");
@@ -248,8 +223,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         // View 2
         if (deviceSettings.isView2Imaged()){
             try { 
-                core_.setConfig("dOPM View", "View 2");
-                core_.waitForConfig("dOPM View", "View 2");
+                currentAcq.setCurrentView(2);
             } catch (Exception e){
                 runnableLogger.severe("Failed to change to view 2, "
                         + "check config dOPM View exists with preset View 2");
@@ -273,6 +247,11 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         } catch (Exception e){
             logErrorWithWindow("Failed to switch camera to internal triggering "
                     + "with " + e.getMessage());
+        }
+        
+        // Update the MDA indices, IMPORTANT FOR FILE SAVING/METADATA!
+        if (currentAcq!=null){  // should never be null, i removed the ability for that
+            currentAcq.nextAcqPoint();
         }
     }
     
@@ -383,32 +362,77 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
      * @throws IOException if datastore creation fails (in FileMM)
      */
     protected Datastore createDatastore(PropertyMap customPropertyMap) 
-            throws IOException{
+            throws IOException, Exception{
         double storeStartTime = System.currentTimeMillis();
         Datastore store;
-        String dataSavePath = (new File(dataOutDir, "MMStack")).getAbsolutePath();
+        String fileName;
+        
+        // get file name based on position in MDA. consider using device 
+        // settings to save into filename laser, power, exposure, filter and 
+        // then the currentAcq just for time, position, z scan plane (if used)
+        if (currentAcq!=null){
+            fileName = String.format("dOPM_t%04d_p%04d_z%04d_c%04d_view%d", 
+                    currentAcq.getCurrentAcqTimeIdx(),
+                    currentAcq.getCurrentAcqPositionIdx(),
+                    currentAcq.getCurrentAcqZIdx(),
+                    currentAcq.getCurrentAcqChannelIdx(),
+                    currentAcq.getCurrentView()
+                );    
+        } else{
+            int i=0;
+            while(new File(dataOutDir, 
+                    String.format("MMStack_n%04d", i)).exists()){
+                i++;
+            }
+            fileName = (String.format("MMStack_n%04d", i));
+        }
+        
+        String dataSavePath = (new File(dataOutDir, fileName)).getAbsolutePath();
+        
         try {
-            store = FileMM.createDatastore(camName, dataSavePath, true);                
-            // Add view angle to MM property map for datastore metadata
-            PropertyMap myPropertyMap = PropertyMaps.builder().
-                putString("scan type", "stage scanning").
+            runnableLogger.info("creating datastore in " + dataSavePath);
+            store = FileMM.createDatastore(camName, dataSavePath, true);    
+        } catch (IOException ie){
+            throw new IOException("Failed to create datastore with "
+                    + ie.getMessage());
+        } catch (Exception e){
+            throw new Exception("Uknown error when creating datastore with "
+                    + e.getMessage());
+        }
+        
+        PropertyMap myPropertyMap; 
+        try {
+            // Get my MDAListener metadata
+            // possibly redudant, this was just used to save file
+
+            // retrivePositionLabels() <- USE THIS SOON TODO?
+            
+            runnableLogger.info("Getting more metadata");
+            myPropertyMap = PropertyMaps.builder().
                 putDouble("angle", currentViewAngle).
-                putString("filter", filter).
-                putString("laser", laser).
+                putString("filter", deviceSettings.getCurrentFilter()).
+                putString("laser", deviceSettings.getCurrentLaser()).
+                putDouble("power", deviceSettings.getCurrentLaserPower()).
                 putDouble("x", startingXPositionUm).
                 putDouble("y", startingYPositionUm).
                 putDouble("z", startingZpositionUm).
+                putInteger("positionIdx", currentAcq.getCurrentAcqPositionIdx()).
+                putInteger("channelIdx", currentAcq.getCurrentAcqChannelIdx()).
+                putInteger("zIdx", currentAcq.getCurrentAcqZIdx()).
+                putInteger("timeIdx", currentAcq.getCurrentAcqTimeIdx()).
                 putAll(customPropertyMap).
                     build();
-
-            SummaryMetadata metaData = mm_.data().summaryMetadataBuilder().
-                    userData(myPropertyMap).build();
-            store.setSummaryMetadata(metaData);
-        } catch (IOException ie){
-            throw new IOException("Failed to create datastore in " + dataSavePath +
-                    " with " + ie.getMessage());
-        }
-        double storeCreationTime = System.currentTimeMillis()-storeStartTime;
+        } catch (Exception e){
+            runnableLogger.severe("Failed to create datastore metadata, falling"
+                            + " back to summary metadata" + e.getMessage());
+            myPropertyMap = PropertyMaps.builder().build();
+            
+        } 
+        SummaryMetadata metaData = mm_.data().summaryMetadataBuilder().
+                userData(myPropertyMap).build();
+        store.setSummaryMetadata(metaData);
+        
+        double storeCreationTime = System.currentTimeMillis() - storeStartTime;
         runnableLogger.info(String.format("Datastore creation time: %.2f ms", 
                 storeCreationTime));
         return store;
@@ -422,10 +446,13 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     
         // Coords.Builder cb = mm_.data().coordsBuilder().z(0).channel(0).stagePosition(0);
         Coords.Builder cb = mm_.data().coordsBuilder().z(0);
+                
+        
+        // TODO TO REMOVE
+        Metadata generateMetadata = null;
 
         boolean grabbed = false;
         int nFrames = 0;
-
         double frameTimeTotal = 0;
         int frameTimeout = 2000; // if no frame received for 2s, time out
 
@@ -440,8 +467,12 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     // wait for an image in the circular buffer
                     if (core_.getRemainingImageCount() > 0){
                         TaggedImage img = core_.popNextTaggedImage();	// TaggedImage
+                        // System.out.println("TAGS: " + img.tags.toString());
+                        
                         // runnableLogger.info("Got tagged image:" + nFrames);
                         Image tmp = mm_.data().convertTaggedImage(img);  // Image 
+                        generateMetadata = mm_.acquisitions().generateMetadata(tmp, true);  //TODO REMOVE
+
                         // does this copy in memory? inefficient?
                         Image cbImg = tmp.copyAtCoords(cb.z(nFrames).build());
                         store.putImage(cbImg);
@@ -468,6 +499,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         }
         
         double acqTimeStop = System.currentTimeMillis() - acqTimeStart; 
+        if (generateMetadata != null) System.out.println("metadata from generate: " + generateMetadata.toString());
         
         runnableLogger.info(String.format("Frames acquired: %s (%d dropped)", 
                 nFrames, (nFramesTotal-nFrames)));

@@ -5,12 +5,20 @@
 package dopm_mm2.Runnables;
 
 import dopm_mm2.GUI.dOPM_hostframe;
+import dopm_mm2.acquisition.MDAListener;
 import java.util.logging.Logger;
+import javax.swing.JOptionPane;
+// import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import org.micromanager.Studio;
+// import org.micromanager.acqj.main.AcquisitionEvent;
 import org.micromanager.acquisition.AcquisitionManager;
 import org.micromanager.data.Datastore;
 import org.micromanager.data.SummaryMetadata;
+
+ // can access acquisition engine here
+// import org.micromanager.internal.MMStudio;  
+// import org.micromanager.acquisition.internal.AcquisitionEngine;
 
 
 /**
@@ -23,6 +31,7 @@ public class snapGeneralVolumeRunnable implements Runnable {
     private static final Logger mdaRunnableLogger = 
             Logger.getLogger(PIScanRunnable.class.getName());
     private AcquisitionManager acq_;
+    private MDAListener dOPMAcqMgr;
     private Runnable snapRunnable;
 
 
@@ -31,16 +40,36 @@ public class snapGeneralVolumeRunnable implements Runnable {
         this.mm_ = frame_ref.mm_;
         acq_ = mm_.getAcquisitionManager();
         
+        // get my aquisition manager
+        try {
+            dOPMAcqMgr = new MDAListener();
+        } catch (Exception e){
+            String err = "Failed to create the "
+                    + "dOPM MDA acqusition manager (used to find "
+                    + "acquisition indices): " + e.getMessage();
+            mdaRunnableLogger.severe(err);
+            JOptionPane.showMessageDialog(null, 
+                      err, 
+                      "Acquisition Error", 
+                      JOptionPane.ERROR_MESSAGE);
+        }
+        
+        // do something like this? to get the position index
+        // acqJ_.addHook(new AcquisitionHook(), AFTER_HARDWARE_HOOK);
         
         switch(scanType){
             case 0:
-                snapRunnable = new PIScanRunnableInherited(frame_ref);
+                snapRunnable = new PIScanRunnableInherited(
+                        frame_ref, dOPMAcqMgr);
                 break;
             case 1:
-                snapRunnable = new TangoXYscanRunnableInherited(frame_ref);
+                snapRunnable = new TangoXYscanRunnableInherited(
+                        frame_ref, dOPMAcqMgr);
                 break;
             case 2:
-                snapRunnable = new TangoXYscanRunnableInherited(frame_ref);
+                snapRunnable = new TangoXYscanRunnableInherited(
+                        frame_ref, dOPMAcqMgr);
+                break;
             default:
                 mdaRunnableLogger.severe("Unknown volume scantype");
             
@@ -53,12 +82,15 @@ public class snapGeneralVolumeRunnable implements Runnable {
             try {
                 acq_.clearRunnables();
                 acq_.attachRunnable(-1, -1, -1, -1, snapRunnable);
+                
+                // we dont use this 
                 Datastore snapStore = acq_.runAcquisitionNonblocking();
                 
-                SummaryMetadata snapMetadata = snapStore.getSummaryMetadata();
-                mdaRunnableLogger.info("snap metadata:" + snapMetadata.toString());
+                // SummaryMetadata snapMetadata = snapStore.getSummaryMetadata();
+                // mdaRunnableLogger.info("snap metadata:" + snapMetadata.toString());
 
                 mdaRunnableLogger.info("Running " + snapRunnable.getClass().getName());
+                
 
             } catch (Exception e){  // look into using micromanager exceptions
                 mdaRunnableLogger.severe("Failed in volume acquisition:" + 
