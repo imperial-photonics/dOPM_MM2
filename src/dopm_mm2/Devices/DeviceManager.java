@@ -48,7 +48,6 @@ public class DeviceManager {
     // private String MirrorStageDeviceName;
     private String leftCameraName;
     private StrVector deviceList;
-    private List<DeviceDetails> detailsOfDevicesInUse;
 
     // Device settings, states, etc.
     private List<String> laserChannelsAcq;
@@ -70,7 +69,9 @@ public class DeviceManager {
     private String[] triggerModeStrings;
     private boolean useMaxScanSpeedForMirror = false;
     
-    private double scanSpeedSafetyFactor;
+    private double scanSpeedSafetyFactorMirror;
+    private double scanSpeedSafetyFactorXy;
+    
     // max possible scan speed for current channel
     private double maxTriggeredScanSpeed;  
     // max possible scan speed considering all the exposure times in acq
@@ -143,7 +144,6 @@ public class DeviceManager {
 
         leftCameraName = "";
         deviceList = null;
-        detailsOfDevicesInUse = null;
 
         // Device settings, states, etc.
         laserChannelsAcq = null;
@@ -157,7 +157,8 @@ public class DeviceManager {
         mirrorTriggerDistance = 1.0;  // Initialized to 1 um
         triggerMode = 0;  // Initialized to 0 (external trigger w/ global reset)
         useMaxScanSpeedForMirror = false;  // Initialized to false
-        scanSpeedSafetyFactor = 0.95;
+        scanSpeedSafetyFactorMirror = 0.95;
+        scanSpeedSafetyFactorXy = 0.95;
         maxTriggeredScanSpeed = 0.01;  // safely slow
         maxGlobalTriggeredScanSpeed = 0.1;
 
@@ -266,24 +267,7 @@ public class DeviceManager {
             setMirrorStageComPort(mirrorStageCOM);
             setZStageComPort(ZStageCOM);
             
-            
             deviceManagerLogger.info("Set devices with setters");
-            // now get full list of devices in use
-            // start list off with the lasers, then add the rest
-            List<String> devicesInUse = getLaserDeviceNames();
-            devicesInUse.add(getFilterDeviceName());
-            devicesInUse.add(getXyStageName());
-            devicesInUse.add(getZStageName());
-            devicesInUse.add(getMirrorStageName());
-            devicesInUse.add(getLeftCameraName());
-            
-            // then their properties, use this to revert after an acquisition for example
-            List<DeviceDetails> devicesDetails = new ArrayList<DeviceDetails>();
-            for (int i=0; i<devicesInUse.size(); i++){
-                devicesDetails.add(new DeviceDetails(devicesInUse.get(i)));
-                deviceManagerLogger.info("adding device " + devicesInUse.get(i));
-            }
-            setDetailsOfDevicesInUse(devicesDetails);
 
         } catch (FileNotFoundException ex) {
             deviceManagerLogger.warning(ex.getMessage());
@@ -489,7 +473,7 @@ public class DeviceManager {
         MirrorDeviceSettings(){};
     }*/
     
-    private String getPort(String deviceName){
+    private String getPortProperty(String deviceName){
         try {
             return core_.getProperty(deviceName, "Port");
         } catch (Exception e){
@@ -498,14 +482,30 @@ public class DeviceManager {
         return "";
     }
 
-    public double getScanSpeedSafetyFactor() {
-        return scanSpeedSafetyFactor;
+    public double getScanSpeedSafetyFactorMirror() {
+        return scanSpeedSafetyFactorMirror;
     }
 
-    public void setScanSpeedSafetyFactor(double scanSpeedSafetyFactor) {
-        this.scanSpeedSafetyFactor = scanSpeedSafetyFactor;
+    public void setScanSpeedSafetyFactorMirror(double scanSpeedSafetyFactorMirror) {
+        this.scanSpeedSafetyFactorMirror = scanSpeedSafetyFactorMirror;
         updateMaxTriggeredScanSpeed();
     }
+
+    public double getScanSpeedSafetyFactorXy() {
+        return scanSpeedSafetyFactorXy;
+    }
+
+    public void setScanSpeedSafetyFactorXy(double scanSpeedSafetyFactorXy) {
+        if (scanSpeedSafetyFactorXy <= 1 & scanSpeedSafetyFactorXy > 0){
+            this.scanSpeedSafetyFactorXy = scanSpeedSafetyFactorXy;
+        } else {
+            deviceManagerLogger.warning("Safety factor attempted to set out of "
+                    + "bounds: " + scanSpeedSafetyFactorXy);
+        }
+        updateMaxTriggeredScanSpeed();
+    }
+    
+    
 
     public double getMaxTriggeredScanSpeed() {
         updateMaxTriggeredScanSpeed();
@@ -537,7 +537,7 @@ public class DeviceManager {
     public double calculateMaxTriggeredScanSpeed(double expMs) {
         try {
             return ((getMirrorTriggerDistance()/getCameraReadoutTime(expMs))*
-                            getScanSpeedSafetyFactor());
+                            getScanSpeedSafetyFactorMirror());
         } catch (Exception e){
             deviceManagerLogger.severe("Failed to update max scan speed "
                     + "for triggering with " + e.getMessage());
@@ -747,7 +747,7 @@ public class DeviceManager {
             this.xyStageName = xyStageName;
             deviceManagerLogger.info("Set XY stage name to " + xyStageName);
             // get port from property, note that resetting stagename will set COM port to ""
-            setXyStageComPort(getPort(xyStageName));
+            setXyStageComPort(getPortProperty(xyStageName));
         }
     }
 
@@ -779,7 +779,6 @@ public class DeviceManager {
         } else {
             this.xyStageGlobalScanSpeed = xyStageGlobalScanSpeed;
         }
-        
     }
      
     public String getXyStageComPort() {
@@ -796,9 +795,7 @@ public class DeviceManager {
 
     public void setUseMaxScanSpeedForXyStage(boolean useMaxScanSpeedForXyStage) {
         this.useMaxScanSpeedForXyStage = useMaxScanSpeedForXyStage;
-
     }
-    
 
     public String getMirrorStageName() {
         return mirrorStageName;
@@ -809,7 +806,8 @@ public class DeviceManager {
             this.mirrorStageName = mirrorStageName;
             deviceManagerLogger.info("Set mirror stage device name to " 
                     + mirrorStageName);
-            setMirrorStageComPort(getPort(mirrorStageName));
+            // try to automatically get COM port 
+            setMirrorStageComPort(getPortProperty(mirrorStageName));
         }
     }
 
@@ -889,7 +887,6 @@ public class DeviceManager {
     }
     
     
-    
     public String getZStageName() {
         return zStageName;
     }
@@ -897,8 +894,12 @@ public class DeviceManager {
     public void setZStageName(String zStageName) {
         if (!zStageName.equals("")){
             this.zStageName = zStageName;
-            setZStageComPort(getPort(zStageName));
+        } else {
+            this.zStageName = core_.getFocusDevice();  // might be "" too
         }
+        // find z stage port by getting port property (wont work with Ti2)
+        setZStageComPort(getPortProperty(zStageName));  
+
     }
 
     public double getzStageTravelSpeed() {
@@ -933,6 +934,7 @@ public class DeviceManager {
         return actualExposureTime;
     }
     // --------------------------------------------------------
+    
     public Rectangle getFrameSize() {
         return frameSize;
     }
@@ -1015,7 +1017,6 @@ public class DeviceManager {
             deviceManagerLogger.info("Camera set to" + leftCameraName);
         }
     }
-
     
     
     public StrVector getDeviceList() {
@@ -1024,30 +1025,6 @@ public class DeviceManager {
 
     public void setDeviceList(StrVector deviceList) {
         this.deviceList = deviceList;
-    }
-
-    public List<DeviceDetails> getDetailsOfDevicesInUse() {
-        return detailsOfDevicesInUse;
-    }
-
-    public void setDetailsOfDevicesInUse(List<DeviceDetails> detailsOfDevicesInUse) {
-        this.detailsOfDevicesInUse = detailsOfDevicesInUse;
-    }
-
-    public void resetDeviceSettings(List<DeviceDetails> detailsOfDevicesInUse){
-        /* given the details of devices, their properties and values saved in 
-        detailsOfDevicesInUse, settings are restored with this method*/
-        int nDevices = detailsOfDevicesInUse.size();
-        for (int n=0; n<nDevices; n++){
-            String deviceName = detailsOfDevicesInUse.get(n).name;
-            String[] properties = detailsOfDevicesInUse.get(n).propertyNames;
-            String[] propertyValues = detailsOfDevicesInUse.get(n).propertyValues;
-            int nProperties = properties.length;
-            for (int p_i=0; p_i<nProperties; p_i++){
-                setProperty(deviceName, properties[p_i], propertyValues[p_i]);
-            }
-            
-        }
     }
     
     public String getProperty(String device, String propety){
@@ -1067,6 +1044,9 @@ public class DeviceManager {
             deviceManagerLogger.severe(e.getMessage());
         }
     }
+    
+    // not used, but a class with struct-like pattern for laser devices 
+    // controlled by DAQ AO
     public class LaserDevice{
         private String name;
         private String lineDO;
@@ -1076,27 +1056,6 @@ public class DeviceManager {
             this.name = name;
             this.lineDO = lineDO;
             this.lineAO = lineAO;
-        }
-    }
-    
-    public class DeviceDetails{
-        private String name;
-        private String[] propertyNames;
-        private String[] propertyValues;
-        
-        DeviceDetails(){
-        }
-        
-        DeviceDetails(String deviceName){
-            name = deviceName;
-            try {
-                propertyNames = core_.getDevicePropertyNames(name).toArray();
-                for (int n=0; n<propertyNames.length; n++){
-                    propertyValues[n] = getProperty(name, propertyNames[n]);
-                }
-            } catch (Exception e){
-                deviceManagerLogger.severe(e.getMessage());
-            }
         }
     }
 }

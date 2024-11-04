@@ -7,7 +7,7 @@ package dopm_mm2.Runnables;
 import dopm_mm2.Devices.PIStage;
 import dopm_mm2.GUI.dOPM_hostframe;
 import static dopm_mm2.Runnables.AbstractAcquisitionRunnable.runnableLogger;
-import dopm_mm2.acquisition.MDAListener;
+import dopm_mm2.acquisition.MDAProgressManager;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import org.micromanager.PropertyMap;
@@ -23,8 +23,8 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
         private final int PIDeviceID;
         
         public PIScanRunnableInherited(dOPM_hostframe frame_ref, 
-                MDAListener acqMgr){
-        super(frame_ref, acqMgr);
+                MDAProgressManager acqProgressMgr){
+        super(frame_ref, acqProgressMgr);
         PIDeviceID = 1;
     }
     
@@ -55,6 +55,7 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
                 scanSpeed, startingMirrorPositionUm));
         // 
         // undershoot so it can reach constant speed
+        // 1 ms of overshoot?
         double scanUndershoot = 10;  // um
         double scanOvershoot = scanUndershoot; 
         
@@ -144,6 +145,7 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
                 scanStartUm, nFrames, scanEndUm, scanSpeed));
         try {
             core_.setProperty(mirrorStage, "Velocity", scanSpeed);
+            core_.waitForDevice(mirrorStage);  // make sure it is ready to move
             core_.setPosition(mirrorStage, scanEndUm);
         } catch (Exception e){
             throw new Exception(String.format(
@@ -160,21 +162,30 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
             throw new Exception("Unknown error occured in triggered sequence"
                     + "acquisition: " + e2.getMessage());
         } finally {
+            // stop sequence acquisition regardless of success
+            double acqstopStart = System.currentTimeMillis();
+            core_.stopSequenceAcquisition(camName);
+            runnableLogger.info(String.format("stopSequenceAcquisition time %.2f ms",
+                    System.currentTimeMillis()-acqstopStart));
             // Freeze and close datastore
             if (store != null){
+                double freezeStart = System.currentTimeMillis();
                 store.freeze();
                 // keep open if RAM datastore
                 if(frame_.isSaveImgToDisk()) store.close();
+                runnableLogger.info(String.format("DS freezing time %.2f ms",
+                        System.currentTimeMillis()-freezeStart));
+            } else {
+                runnableLogger.severe("Can't freeze/close empty datastore");
             }
         }
         
         // Disable triggering, stop sequence
         try {
-            PIStage.setPITriggerEnable(mirrorStagePort, 1);
+            PIStage.setPITriggerEnable(mirrorStagePort, 0);
         } catch (Exception e){
             throw new Exception(String.format("Failed to disable PI triggering "
                     + "with exception %s", e.getMessage()));
         }
-        core_.stopSequenceAcquisition(camName);
     }
 }

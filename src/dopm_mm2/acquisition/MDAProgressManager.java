@@ -36,12 +36,12 @@ import org.micromanager.PropertyMaps;
  *
  * @author OPMuser
  */
-public class MDAListener {
+public class MDAProgressManager {
     private final CMMCore core_;
     private final Studio mm_;
     SequenceSettings mdaSettings;
     
-    private static final Logger acquisitionManagerLogger = Logger.getLogger(MDAListener.class.getName());
+    private static final Logger acquisitionManagerLogger = Logger.getLogger(MDAProgressManager.class.getName());
         
     private final int acqOrderMode;
     // private final List<String> positionLabels;
@@ -93,16 +93,16 @@ public class MDAListener {
      */
     
     /*
-    public MDAListener() 
+    public MDAProgressManager() 
             throws Exception {
         this(null);
         
     }*/
      /** Constructor with device settings 
-     * @param deviceMgr DeviceManager object that contains device info, settings
+     * 
      * @throws Exception 
      */
-    public MDAListener() throws Exception {
+    public MDAProgressManager() throws Exception {
         // get MDA settings
         core_ = MMStudioInstance.getCore();
         mm_ = MMStudioInstance.getStudio();
@@ -258,20 +258,20 @@ public class MDAListener {
     
     private List<Double> calculateZSlices(){
     acquisitionManagerLogger.info("Working out z slices in um");
-        List<Double> zSlices;
+        List<Double> zSlices_;
         if (mdaSettings.useSlices()){
             double zBottomUm = mdaSettings.sliceZBottomUm();
             double zStepUm = mdaSettings.sliceZStepUm();
             double zTopUm = mdaSettings.sliceZTopUm();
             
-            zSlices = IntStream.rangeClosed(0, (int)((zTopUm - zBottomUm)/zStepUm))
+            zSlices_ = IntStream.rangeClosed(0, (int)((zTopUm - zBottomUm)/zStepUm))
                            .mapToObj(z -> z*zStepUm + zBottomUm)
                            .collect(Collectors.toList());
           } else {
-            zSlices = new ArrayList<>(0);
-            zSlices.add(0.0);
+            zSlices_ = new ArrayList<>(0);
+            zSlices_.add(0.0);
         }
-        return zSlices;
+        return zSlices_;
     }
     
     private List<String> retrivePositionLabels(){
@@ -483,8 +483,8 @@ public class MDAListener {
         return currentAcqZIdx;
     }
     
-    public int getCurrentAcqZ() {
-        return currentAcqZIdx;
+    public double getCurrentAcqZ() {
+        return currentAcqZ;
     }
 
     public void updateCurrentAcqZ() {

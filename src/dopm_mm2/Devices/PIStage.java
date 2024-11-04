@@ -62,6 +62,10 @@ public class PIStage {
     
     /** check if PI stage is on target and not moving with SRG command which 
      * returns hex strings. A bit overkill but the only way.
+     * 
+     * EDIT: actually, if you send 05 as a hex string ((hex) 05) #5 works too
+     * not sure how Mark worked this out but I saw it in the debug window
+     * 
      * @param port COM port
      * @ return true if stage is ready
      */
@@ -337,7 +341,7 @@ public class PIStage {
 
             } catch (Exception e) {
                 if (i > maxRetry) {
-                    throw new TimeoutException(String.format("Failed to set trigger mode after %d "
+                    throw new TimeoutException(String.format("Failed to set serial cmd after %d "
                             + "tries with exception %s", maxRetry, e.getMessage()));
                 }
                 try {
@@ -348,7 +352,7 @@ public class PIStage {
             i++;
         } while (!isSet && i < maxRetry);
         if (i > maxRetry){
-            throw new TimeoutException(String.format("Failed to set trigger mode "
+            throw new TimeoutException(String.format("Failed to set serial cmd "
                 + "after %d tries without exception--check precision?", maxRetry));
         }
     }

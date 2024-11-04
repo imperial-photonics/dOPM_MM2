@@ -6,7 +6,7 @@ package dopm_mm2.Runnables;
 
 import dopm_mm2.GUI.dOPM_hostframe;
 import dopm_mm2.Devices.TangoXYStage;
-import dopm_mm2.acquisition.MDAListener;
+import dopm_mm2.acquisition.MDAProgressManager;
 import dopm_mm2.util.FileMM;
 import java.io.File;
 import java.io.IOException;
@@ -17,14 +17,25 @@ import org.micromanager.data.Datastore;
 import org.micromanager.data.SummaryMetadata;
 import org.micromanager.display.DisplayWindow;
 
-/**
+/** Runnable for Tango XY stage scanning acquisition.
+ * Note that all units are in um here because default precision too low to
+ * set trigger distance to order 1um, and also the triggering for the OPM 
+ * in 712 was also done in micron
+ * 
  *
- * @author OPMuser
+ * @author lnr19
  */
 public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
     public TangoXYscanRunnableInherited(dOPM_hostframe frame_ref, 
-            MDAListener acqMgr){
-        super(frame_ref, acqMgr);
+            MDAProgressManager acqProgressMgr){
+        super(frame_ref, acqProgressMgr);
+        
+        // init dimenions of tango
+        try {
+            TangoXYStage.setTangoXyUnitsToUm(XYStagePort);
+        } catch (Exception e){
+            logErrorWithWindow(e);
+        }
     }
     @Override
     public void runSingleView(double opmAngle) throws Exception{
@@ -55,7 +66,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         }
         try {
             TangoXYStage.setTangoTriggerDistance(XYStagePort, scanAxis,
-                    triggerDistanceUm*1e-3);
+                    triggerDistanceUm);
         } catch (Exception e){
             throw new Exception("Failed to set tango trigger distance with " + 
                     e.getMessage());
@@ -79,6 +90,8 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         double triggerScanStartUm = startingScanPosition - scanLengthXyUm/2;
         double targetTriggerScanEndUm = startingScanPosition + scanLengthXyUm/2;
         
+        double[] triggerRangeUm = new double[]{
+            triggerScanStartUm, targetTriggerScanEndUm};
         
         double[] triggerRangeMillim = new double[]{
             triggerScanStartUm*1e-3, targetTriggerScanEndUm*1e-3};
@@ -88,14 +101,21 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         
         // Set trigger range for tango to define volume scan length. My function
         // returns the actual scan length for an integer number of triggers
+        
+        ////////////////////////////////////////////////////////////////////////
+        /////// I set dim earlier to 10, which means microns are used !! ///////
+ 
+        
         try {
-            actualTriggerScanEndMillim = TangoXYStage.setTangoTriggerRange(
-                    XYStagePort, scanAxis, triggerRangeMillim)[1];
-            actualTriggerScanEndUm = actualTriggerScanEndMillim*1e3;
+            // set triggers and gets end point of trigger range
+            actualTriggerScanEndUm = 
+                   TangoXYStage.setTangoTriggerRange(
+                    XYStagePort, scanAxis, triggerRangeUm)[1];
+            actualTriggerScanEndMillim = actualTriggerScanEndUm*1e-3;
         } catch (Exception e){
             throw new Exception(String.format("Failed to set Tango %s "
-                    + "trigger range to [%.4f, ~%.4f] mm with exception %s", 
-                    scanAxis, triggerRangeMillim[0], triggerRangeMillim[1],
+                    + "trigger range to [%.4f, ~%.4f] um with exception %s", 
+                    scanAxis, triggerRangeUm[0], triggerRangeUm[1],
                     e.getMessage()));
         }
         double actualScanLength = actualTriggerScanEndUm - triggerScanStartUm;
@@ -131,6 +151,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                     putDouble("scan length um", actualScanLength).
                         build();
 
+                // feed datastore extra metadata info specific to stage scan
                 store = createDatastore(myPropertyMap);
        
             } catch (IOException ie){
@@ -156,7 +177,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                 + "[start: %.2f um, frames: %d, end %.2f um]",
                 scanAxis, scanStartUm, nFrames, scanEndUm));
         try {
-            core_.setProperty(XYStage, "Velocity", scanSpeed);
+            TangoXYStage.setTangoAxisSpeed(XYStage, scanAxis, scanSpeed);
             TangoXYStage.setAxisPosition(XYStage, scanEndUm, scanAxis);
         } catch (Exception e){
             throw new Exception(String.format(
@@ -173,19 +194,35 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                     + "acquisition: " + e2.getMessage());
         } finally {
             // Freeze and close datastore
-            store.freeze();
-            if(frame_.isSaveImgToDisk()) store.close();
+            // apparently the metadata is not saved 
+            // unless sequence acquisition is stopped!
+            double acqstopStart = System.currentTimeMillis();
+            core_.stopSequenceAcquisition(camName);
+            runnableLogger.info(String.format("stopSequenceAcquisition time %.2f ms",
+                    System.currentTimeMillis()-acqstopStart));
+            if (store != null){
+                double freezeStart = System.currentTimeMillis();
+                store.freeze();
+                if(frame_.isSaveImgToDisk()) store.close();
+                runnableLogger.info(String.format("DS freezing time %.2f ms",
+                        System.currentTimeMillis()-freezeStart));
+            } else {
+                runnableLogger.severe("Can't freeze/close empty datastore");
+            }
         }
         
         // Disable triggering, stop sequence
         try {
             TangoXYStage.setTangoTriggerEnable(XYStagePort, scanAxis, 0);
+            runnableLogger.info("Tango Error? " + 
+                    TangoXYStage.getTangoErrorMsg(XYStagePort));
+
         } catch (Exception e){
             throw new Exception(String.format("Failed to disable triggering "
                     + "%s axis of tango with exception %s", 
                     scanAxis, e.getMessage()));
         }
-        core_.stopSequenceAcquisition(camName);
+        
         
     }
 }

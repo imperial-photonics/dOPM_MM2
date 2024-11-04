@@ -12,32 +12,25 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.FileHandler;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
-import mmcorej.Configuration;
 import mmcorej.TaggedImage;
 import org.micromanager.PropertyMap;
 import org.micromanager.PropertyMaps;
 import org.micromanager.StagePosition;
 import org.micromanager.PositionList;
 import org.micromanager.Studio;
-import org.micromanager.acquisition.SequenceSettings;
 import org.micromanager.data.Coords;
 import org.micromanager.data.Datastore;
 import org.micromanager.data.Image;
 import org.micromanager.data.Metadata;
 import org.micromanager.data.SummaryMetadata;
 
-import org.micromanager.acqj.internal.Engine;
-import com.google.common.collect.Lists;
-import dopm_mm2.acquisition.MDAListener;
+import dopm_mm2.acquisition.MDAProgressManager;
+import dopm_mm2.util.errorTools;
 
 /** Abstract class for dOPM runnables, switching between views and calling 
  * runSingleView for each view.
@@ -53,12 +46,13 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     protected final CMMCore core_;
     protected final Studio mm_;
     protected final DeviceManager deviceSettings;
-    protected final MDAListener currentAcq;
+    protected final MDAProgressManager currentAcq;
     protected double currentViewAngle;
     
     protected String settingsOutDir;
     protected String dataOutDir;
-    protected String acqTimestamp;
+    
+    protected boolean errorWindowsDuringAcq;
 
     protected final String camName;
     protected final String mirrorStage;
@@ -83,42 +77,22 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     
     protected double volumeScanLength;
     
+    protected int maxDroppedFrames;
+    
+    // Use the "MDA" logger 
     protected static final Logger runnableLogger = 
-        Logger.getLogger(PIScanRunnable.class.getName());
+        Logger.getLogger(MDARunnable.class.getName());
        
     public AbstractAcquisitionRunnable(dOPM_hostframe frame_ref, 
-            MDAListener acqListener) {
-        frame_ = frame_ref;
+            MDAProgressManager acqProgressMgr) {
+        frame_ = frame_ref;  // consider changing dependency to just deviceSettings
         mm_ = dOPM_hostframe.mm_;
         core_ = mm_.getCMMCore();
         deviceSettings = frame_.getDeviceSettings();
-        currentAcq = acqListener;
+        currentAcq = acqProgressMgr;
         
-        LocalDateTime date = LocalDateTime.now(); // Create a date object
-        DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern(
-                    "yyyyMMddhhmmss");
-
-        String formattedDate = date.format(myFormatObj);
-        acqTimestamp = formattedDate;
-        
-        File dataOutRootDir = frame_.getDataFolderDir();//.getAbsolutePath();
-        File settingsRootOutDir = 
-                    frame_.getSettingsFolderDir();//.getAbsolutePath();
-        
-        // make the dirs in a timestamped subdir so it doesn't overwrite
-        dataOutDir = new File(
-                dataOutRootDir, acqTimestamp).getAbsolutePath();
-        settingsOutDir = new File(
-                settingsRootOutDir, acqTimestamp).getAbsolutePath();
-        
-        new File(dataOutDir).mkdirs();
-        new File(settingsOutDir).mkdirs();
-        
-        runnableLogger.info("dataOutDir: " + dataOutDir);
-        runnableLogger.info("settingsOutDir: " + settingsOutDir);
-        
-        // create log file
-        createLog(settingsRootOutDir.getAbsolutePath());
+        errorWindowsDuringAcq = true;
+        maxDroppedFrames = 0;
         
         // device variables
         camName = deviceSettings.getLeftCameraName();
@@ -129,36 +103,16 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         DAQDOPort = deviceSettings.getLaserBlankingDOport();
         
         runnableLogger.info(String.format("Variables: "
-                + "camera %s, "
-                + "mirror stage; %s, "
-                + "xy stage; %s, "
-                + "z stage; %s, "
-                + "filter wheel; %s, "
-                + "DAQ DO port; %s",
+                + "camera: %s, "
+                + "mirror stage: %s, "
+                + "xy stage: %s, "
+                + "z stage: %s, "
+                + "filter wheel: %s, "
+                + "DAQ DO port: %s",
                 camName, mirrorStage, XYStage, ZStage, filterWheel, DAQDOPort));   
         
         XYStagePort = deviceSettings.getXyStageComPort();
         mirrorStagePort = deviceSettings.getMirrorStageComPort();
-    }
-    
-    private void createLog(String logOutDir){
-        try { 
-            // Just print log for this runnable for debugging directly
-            FileHandler fh = new FileHandler(new File(
-                    logOutDir, 
-                    String.format("acqLog%s.txt", acqTimestamp)).toString());
- 
-            runnableLogger.addHandler(fh);
-            SimpleFormatter formatter = new SimpleFormatter();  
-            fh.setFormatter(formatter);  
-            runnableLogger.info(String.format("Started log for %s at %s", 
-                    this.getClass().getName(), logOutDir));
-        } catch (IOException ioe){
-            runnableLogger.severe("Failed to create log with " + 
-                    ioe.getMessage());
-        } catch (SecurityException se){
-            runnableLogger.severe("Failed to create dirs " + se.getMessage());
-        }     
     }
     
     @Override
@@ -197,6 +151,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         
         // View 1
         if (deviceSettings.isView1Imaged()){
+            runnableLogger.info("Acquiring view 1");
             // this config should be set automatically if it doesnt exist from 
             // PIViewPositions.txt (TODO)
             try { 
@@ -214,6 +169,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 runSingleView(currentViewAngle);
             } catch (Exception e){
                 logErrorWithWindow(e);
+                
             } finally {
                 cleanupAcq();
                 setStagePositionsToStart();
@@ -222,6 +178,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         }
         // View 2
         if (deviceSettings.isView2Imaged()){
+            runnableLogger.info("Acquiring view 2");
             try { 
                 currentAcq.setCurrentView(2);
             } catch (Exception e){
@@ -259,28 +216,17 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         // MAIN BODY OF CODE GOES HERE, use @Override
     }
 
+    
     protected void logErrorWithWindow(Exception e){
-        StringWriter sw = new StringWriter();
-        e.printStackTrace(new PrintWriter(sw));
-        String exceptionString = sw.toString();
-        
-        runnableLogger.severe(exceptionString);
-        
-        JOptionPane.showMessageDialog(null, 
-                              "Acquisition failed: " + e.getMessage(), 
-                              "Acquisition Error", 
-                              JOptionPane.ERROR_MESSAGE);
+        runnableLogger.severe(e.toString());
+        if (errorWindowsDuringAcq) errorTools.acquisitionErrorWindow(e);
     }
-        
+    
     protected void logErrorWithWindow(String msg){
         runnableLogger.severe(msg);
-        
-        JOptionPane.showMessageDialog(null, 
-                              "Acquisition failed: " + msg, 
-                              "Acquisition Error", 
-                              JOptionPane.ERROR_MESSAGE);
-        
+        if (errorWindowsDuringAcq) errorTools.acquisitionErrorWindow(msg);
     }
+    
     protected void storeStageStartingPositions() throws Exception{
         // Get start positions
         try {
@@ -303,16 +249,21 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             core_.setProperty(DAQDOPort, "State", 0);
             core_.setProperty(DAQDOPort, "Blanking", "Off");
         } catch (Exception e){
-            logErrorWithWindow("Failed to switch off lasers and blanking via DAQ");
+            String err = "Failed to switch off lasers and blanking via DAQ: " 
+                    + e.toString();
+            runnableLogger.severe(err);
+            logErrorWithWindow(err);
+            
         }
 
         try {
             double stopAcqStart = System.currentTimeMillis();
             if (core_.isSequenceRunning()){
                 core_.stopSequenceAcquisition();
-                logErrorWithWindow(String.format(
+                String err = String.format(
                         "Stopped previous acquisition in %.1f ms",
-                        (System.currentTimeMillis() - stopAcqStart) ));
+                        (System.currentTimeMillis() - stopAcqStart) );
+                logErrorWithWindow(err);
             }
         } catch (Exception e){
                 
@@ -326,9 +277,10 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         try {
             TangoXYStage.setTangoAxisSpeed(
                     XYStage, deviceSettings.getXyStageTravelSpeed());
-
             core_.setProperty(mirrorStage, "Velocity", 100);
-            core_.setXYPosition(XYStage, startingXPositionUm, startingYPositionUm);
+            // had previous issue of tango stage not being ready to move, fixed
+            TangoXYStage.setXyPosition(XYStage, startingXPositionUm, startingYPositionUm);
+            // core_.setXYPosition(XYStage, startingXPositionUm, startingYPositionUm);
             if (!ZStage.equals("")) core_.setPosition(ZStage, startingZpositionUm);
             core_.setPosition(mirrorStage, startingMirrorPositionUm);
         } catch (Exception e){
@@ -365,13 +317,13 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             throws IOException, Exception{
         double storeStartTime = System.currentTimeMillis();
         Datastore store;
-        String fileName;
+        String stackDirName;
         
         // get file name based on position in MDA. consider using device 
         // settings to save into filename laser, power, exposure, filter and 
         // then the currentAcq just for time, position, z scan plane (if used)
         if (currentAcq!=null){
-            fileName = String.format("dOPM_t%04d_p%04d_z%04d_c%04d_view%d", 
+            stackDirName = String.format("dOPM_t%04d_p%04d_z%04d_c%04d_view%d", 
                     currentAcq.getCurrentAcqTimeIdx(),
                     currentAcq.getCurrentAcqPositionIdx(),
                     currentAcq.getCurrentAcqZIdx(),
@@ -384,10 +336,10 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     String.format("MMStack_n%04d", i)).exists()){
                 i++;
             }
-            fileName = (String.format("MMStack_n%04d", i));
+            stackDirName = (String.format("MMStack_n%04d", i));
         }
         
-        String dataSavePath = (new File(dataOutDir, fileName)).getAbsolutePath();
+        String dataSavePath = (new File(dataOutDir, stackDirName)).getAbsolutePath();
         
         try {
             runnableLogger.info("creating datastore in " + dataSavePath);
@@ -402,7 +354,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         
         PropertyMap myPropertyMap; 
         try {
-            // Get my MDAListener metadata
+            // Get my MDAProgressManager metadata
             // possibly redudant, this was just used to save file
 
             // retrivePositionLabels() <- USE THIS SOON TODO?
@@ -413,12 +365,18 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 putString("filter", deviceSettings.getCurrentFilter()).
                 putString("laser", deviceSettings.getCurrentLaser()).
                 putDouble("power", deviceSettings.getCurrentLaserPower()).
+                putDouble("exposureMs", core_.getExposure()).
                 putDouble("x", startingXPositionUm).
                 putDouble("y", startingYPositionUm).
                 putDouble("z", startingZpositionUm).
+                putString("positionLabel", currentAcq.getCurrentAcqPositionLabel()).
                 putInteger("positionIdx", currentAcq.getCurrentAcqPositionIdx()).
+                putString("channelGroup", currentAcq.getCurrentAcqChannel().channelGroup()).
                 putInteger("channelIdx", currentAcq.getCurrentAcqChannelIdx()).
-                putInteger("zIdx", currentAcq.getCurrentAcqZIdx()).
+                putDouble("zSlice", currentAcq.getCurrentAcqZ()).
+                putInteger("zSliceIdx", currentAcq.getCurrentAcqZIdx()).
+                putDouble("time (ms)", currentAcq.getCurrentAcqTime()).
+                putDouble("time (mins)", currentAcq.getCurrentAcqTime()/60000).
                 putInteger("timeIdx", currentAcq.getCurrentAcqTimeIdx()).
                 putAll(customPropertyMap).
                     build();
@@ -426,8 +384,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             runnableLogger.severe("Failed to create datastore metadata, falling"
                             + " back to summary metadata" + e.getMessage());
             myPropertyMap = PropertyMaps.builder().build();
-            
         } 
+
         SummaryMetadata metaData = mm_.data().summaryMetadataBuilder().
                 userData(myPropertyMap).build();
         store.setSummaryMetadata(metaData);
@@ -446,16 +404,11 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     
         // Coords.Builder cb = mm_.data().coordsBuilder().z(0).channel(0).stagePosition(0);
         Coords.Builder cb = mm_.data().coordsBuilder().z(0);
-                
-        
-        // TODO TO REMOVE
-        Metadata generateMetadata = null;
 
         boolean grabbed = false;
         int nFrames = 0;
         double frameTimeTotal = 0;
         int frameTimeout = 2000; // if no frame received for 2s, time out
-
 
         while (nFrames < nFramesTotal && !timeout){
  
@@ -471,7 +424,6 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                         
                         // runnableLogger.info("Got tagged image:" + nFrames);
                         Image tmp = mm_.data().convertTaggedImage(img);  // Image 
-                        generateMetadata = mm_.acquisitions().generateMetadata(tmp, true);  //TODO REMOVE
 
                         // does this copy in memory? inefficient?
                         Image cbImg = tmp.copyAtCoords(cb.z(nFrames).build());
@@ -482,24 +434,27 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     toc = System.currentTimeMillis(); 
                 }
                 if (toc-tic >= frameTimeout){
+                    int dropped = (nFramesTotal-nFrames);
                     runnableLogger.severe(String.format(
-                            "%d FRAMES DROPPED", (nFramesTotal-nFrames)));
+                            "%d FRAMES DROPPED", dropped));
                     timeout = true;  // actually redundant
                     if (nFrames==0){
                         throw new TimeoutException("No frames acquired in triggered "
                             + "acquisition. Check hardware and wiring");
-                    } else {
-                        throw new TimeoutException((nFramesTotal-nFrames) + 
-                                " frames dropped in triggered acquisition, "
+                    } else if (dropped > maxDroppedFrames) {
+                        String msg = String.format(
+                                "%d frames dropped (maximum allowed=%d) in "
+                                + "triggered acquisition, "
                                 + "check camera speed settings, trigger "
-                                + "distance, exposure, scan speed");
+                                + "distance, exposure, scan speed", 
+                                dropped, maxDroppedFrames);
+                        throw new TimeoutException(msg);
                     }
                 }
                 frameTimeTotal += (toc-tic);
         }
         
         double acqTimeStop = System.currentTimeMillis() - acqTimeStart; 
-        if (generateMetadata != null) System.out.println("metadata from generate: " + generateMetadata.toString());
         
         runnableLogger.info(String.format("Frames acquired: %s (%d dropped)", 
                 nFrames, (nFramesTotal-nFrames)));

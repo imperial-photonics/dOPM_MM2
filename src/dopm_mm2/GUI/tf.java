@@ -2,14 +2,12 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package dopm_mm2.util;
+package dopm_mm2.GUI;
 
 /**
  *
  * @author OPMuser
  */
-public class LoggingTools {
-    public void LoggingTools(){};
+class tf {
     
-    public static void logAndWrite(){}
 }
