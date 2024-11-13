@@ -86,6 +86,24 @@ public class TangoXYStage {
         }
     }
     
+    private static void customWaitForStage(String device) throws Exception{
+        long timeout = 10000;
+        int intvlMs = 10;
+        int waitedMs = 0;
+        String port = MMStudioInstance.getCore().getProperty(device, "Port");
+        MMStudioInstance.getCore().setSerialPortCommand(port, "?statusaxis", "\r");
+        String ans = MMStudioInstance.getCore().getSerialPortAnswer(port, "\r");
+        while(!ans.equals("JJ--.-") && waitedMs < timeout){
+            Thread.sleep(intvlMs);
+            MMStudioInstance.getCore().setSerialPortCommand(port, "?statusaxis", "\r");
+            waitedMs += intvlMs;
+        } 
+        if (waitedMs < timeout){
+            throw new TimeoutException("Timed out waiting for Tango stage");
+        } 
+        
+    }
+    
     /** Wraps the core_.setXYPosition, WAITS for move to be done with inbuilt
      * device adapter/micromanager command waitForDevice?
      * 
@@ -97,7 +115,10 @@ public class TangoXYStage {
     public static void setXyPosition(
             String device, double x, double y) throws Exception {
         try {
+            long start = System.currentTimeMillis();
             MMStudioInstance.getCore().waitForDevice(device);
+            tangoXYLogger.info(String.format("waited %d ms for %s",
+                    System.currentTimeMillis()-start, device));
             MMStudioInstance.getCore().setXYPosition(
                             device, x, y);
             tangoXYLogger.info(String.format("Set position to "
@@ -236,6 +257,7 @@ public class TangoXYStage {
      **/
     public static double[] setTangoTriggerRange(String port, String axis,
             double[] desiredTriggerRange) throws Exception {
+        long start_ = System.currentTimeMillis();
         setTangoXyUnitsToUm(port); 
         MMStudioInstance.getCore().setSerialPortCommand(
                 port, "?trigd " + axis, "\r");
@@ -243,8 +265,13 @@ public class TangoXYStage {
         double triggerDist = Double.parseDouble(MMStudioInstance.getCore().
                 getSerialPortAnswer(port, "\r"));
         tangoXYLogger.info("got trigger distance as " + triggerDist);
-        return setTangoTriggerRange(port, axis,
+        
+        // set desired trigger range and get actual
+        double actualTriggerRange[] = setTangoTriggerRange(port, axis,
             desiredTriggerRange, triggerDist);
+        tangoXYLogger.info(String.format("caluclated and set trigger intervals in %d",
+                System.currentTimeMillis()-start_));
+        return actualTriggerRange;
     }
     
     /** Works by calculating N number of triggers to fit in the desired 

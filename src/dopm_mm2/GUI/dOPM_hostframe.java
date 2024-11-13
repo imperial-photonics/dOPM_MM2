@@ -33,10 +33,10 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     static dOPM_hostframe frame_;
     public static Studio mm_ = null;
     public CMMCore core_ = null;
+     
     private static final Logger dOPM_hostframeLogger = 
             Logger.getLogger(dOPM_hostframe.class.getName());
     
-    // TODO: save this to a file
     private static final Logger rootLogger = 
         Logger.getLogger("");
     private File dopm_mm2Logdir;
@@ -76,6 +76,11 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         frame_.setTitle("dOPM controller for Micro-manager 2");
         frame_.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
                 
+        // set logging format for whole app
+        System.setProperty(
+            "java.util.logging.SimpleFormatter.format",
+            "[%1$tF %1$tT %1$tL] [%4$-7s] %5$s %n");
+        
         makeDirsAndLog();
         
         saveImgToDisk = false;
@@ -87,7 +92,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 "Leo\\micromanager\\dopm_plugin\\defaultDeviceConfig.csv").getAbsoluteFile();
                 
         deviceSettings = new DeviceManager(core_);
-        deviceSettings.loadDeviceNames(defaultConfigFile);
+        deviceSettings.loadSystemSettings(defaultConfigFile);
         
         runnableIsRunning = false;
         
@@ -344,6 +349,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         pcOfMaxXyField.setText(String.format("%.2f",deviceSettings.getScanSpeedSafetyFactorXy()));
         pcOfMaxXyField.setToolTipText("The percentage of the maximum theoretical scan speed, 95% is recommended");
         pcOfMaxXyField.setInputVerifier(new pcVerifier());
+        pcOfMaxXyField.setPreferredSize(new java.awt.Dimension(100, 22));
         pcOfMaxXyField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 pcOfMaxXyFieldActionPerformed(evt);
@@ -418,7 +424,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         jTabbedPane1.addTab("XY Stage scan", xyStageScanSettingsPanel);
 
-        mirrorScanSettingsPanel.setPreferredSize(new java.awt.Dimension(380, 96));
+        mirrorScanSettingsPanel.setPreferredSize(new java.awt.Dimension(396, 90));
 
         mirrorScanLengthField.setText(String.format("%.1f", deviceSettings.getMirrorScanLength()));
         mirrorScanLengthField.setInputVerifier(new typeVerifierDouble());
@@ -456,6 +462,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         pcOfMaxMirrorField.setText(String.format("%.2f",deviceSettings.getScanSpeedSafetyFactorMirror()));
         pcOfMaxMirrorField.setInputVerifier(new pcVerifier());
+        pcOfMaxMirrorField.setPreferredSize(new java.awt.Dimension(100, 22));
         pcOfMaxMirrorField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 pcOfMaxMirrorFieldActionPerformed(evt);
@@ -787,7 +794,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         if (returnVal == JFileChooser.APPROVE_OPTION){
             File configFile = fc.getSelectedFile();
             setDefaultConfigFile(configFile);
-            deviceSettings.loadDeviceNames(configFile);
+            deviceSettings.loadSystemSettings(configFile);
         }   
     }//GEN-LAST:event_openDeviceConfigMenuItemActionPerformed
 
@@ -850,7 +857,18 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_mirrorMaxSpeedCheckBoxActionPerformed
 
     private void mirrorScanIntervalFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mirrorScanIntervalFieldActionPerformed
-        deviceSettings.setMirrorTriggerDistance(Double.parseDouble(mirrorScanIntervalField.getText()));
+        
+        // value is supplied in normal coordinates
+        double scanIntervalMirrorZprime =
+                Double.parseDouble(mirrorScanIntervalField.getText());
+        // convert to actual lateral scan coordinates
+        double scanIntervalLateral = deviceSettings.lateralScanToLabZ(
+               scanIntervalMirrorZprime);
+        dOPM_hostframeLogger.info("parsing scan length as " + 
+                scanIntervalMirrorZprime);
+        dOPM_hostframeLogger.info("set lateral mirror scan trigger dist to " + 
+                scanIntervalLateral);
+        deviceSettings.setMirrorTriggerDistance(scanIntervalLateral);
     }//GEN-LAST:event_mirrorScanIntervalFieldActionPerformed
 
     private void mirrorScanSpeedFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mirrorScanSpeedFieldActionPerformed
@@ -864,10 +882,15 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_mirrorScanSpeedFieldActionPerformed
 
     private void mirrorScanLengthFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mirrorScanLengthFieldActionPerformed
-        String scanLengthStr = mirrorScanLengthField.getText();
-        double scanLength = Double.parseDouble(scanLengthStr);
-        dOPM_hostframeLogger.info("parsing scan length as " + scanLengthStr);
-        deviceSettings.setMirrorScanLength(scanLength);
+        String scanLengthZprimeStr = mirrorScanLengthField.getText();
+        double scanLengthZprime = 
+                Double.parseDouble(scanLengthZprimeStr);
+        // convert from z remote scan coordinates (z to mirror lateral)
+        double scanLengthLateral = deviceSettings.lateralScanToLabZ(scanLengthZprime);
+        dOPM_hostframeLogger.info("parsing scan length (z) as " + scanLengthZprimeStr);
+        deviceSettings.setMirrorScanLength(scanLengthLateral);
+        dOPM_hostframeLogger.info("set lateral mirror scan length to " + 
+                scanLengthLateral);
     }//GEN-LAST:event_mirrorScanLengthFieldActionPerformed
 
     private void pcOfMaxMirrorFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pcOfMaxMirrorFieldActionPerformed

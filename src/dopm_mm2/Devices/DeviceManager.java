@@ -86,6 +86,7 @@ public class DeviceManager {
     private double xyStageGlobalScanSpeed;  // acq scan speed set same for all channels
     private String xyStageComPort;
     
+    private double immersionRI;
     private double opmAngle;
     private boolean imageView1;
     private boolean imageView2;
@@ -183,6 +184,7 @@ public class DeviceManager {
         zStageTravelSpeed = 10.0;
         zStageComPort = "";
         
+        immersionRI = 1.4;
         imageView1 = true;
         imageView2 = false;
         opmAngle = 45;
@@ -224,7 +226,7 @@ public class DeviceManager {
         *   [10] DAQDOport,daqDOPortName,\n  
         * ---------------------
      */
-    public void loadDeviceNames(File configDetailsCsv){
+    public void loadSystemSettings(File configDetailsCsv){
         try (BufferedReader br = new BufferedReader(new FileReader(configDetailsCsv))) {
 
             List<List<String>> configData = new ArrayList<>();
@@ -253,7 +255,11 @@ public class DeviceManager {
             String XYStageCOM = (parseList(configData.get(11))).get(0);
             String ZStageCOM = (parseList(configData.get(12))).get(0);
             String mirrorStageCOM = (parseList(configData.get(13))).get(0);
-
+            double RI = Double.parseDouble(
+                    (parseList(configData.get(14))).get(0));
+            double angle = Double.parseDouble(
+                    (parseList(configData.get(15))).get(0));
+            
             setLeftCameraName(core_.getCameraDevice());
             setLaserLabels(laserLabs);
             setLaserBlankingDOport(laserDOPort);
@@ -266,6 +272,8 @@ public class DeviceManager {
             setXyStageComPort(XYStageCOM);
             setMirrorStageComPort(mirrorStageCOM);
             setZStageComPort(ZStageCOM);
+            setImmersionRI(RI);
+            setOpmAngle(angle);
             
             deviceManagerLogger.info("Set devices with setters");
 
@@ -333,8 +341,9 @@ public class DeviceManager {
         try {
             int laserState = Integer.parseInt(
                     core_.getProperty(laserBlankingDOport, "State"));
-            laserIdx = (int)(Math.log(laserState)/Math.log(2));
-            deviceManagerLogger.info("laserIdx: " + laserIdx);
+            laserIdx = (int)(Math.log(laserState+1)/Math.log(2));
+            deviceManagerLogger.info(String.format(
+                    "laserState: %d laserIdx %d: ", laserState, laserIdx));
             
         } catch (Exception e){
             deviceManagerLogger.severe("Couldn't get laser index: " 
@@ -654,6 +663,24 @@ public class DeviceManager {
         this.filtersAcq = filters;
     }
 
+    public double lateralScanToMirrorNormal(double lateral){
+        return 2*lateral*Math.sin(0.5*getOpmAngle()*Math.PI/180)/getImmersionRI();
+    }
+    
+    public double mirrorNormaltoLateralScan(double normal){
+        return normal*getImmersionRI()/(2*Math.sin(0.5*getOpmAngle()*Math.PI/180));
+    }
+    
+    public double lateralScanToLabZ(double lateral){
+        return lateral*Math.sin(getOpmAngle()*Math.PI/180)/getImmersionRI();
+        // return getImmersionRI()/(2*normal*Math.sin(getOpmAngle()*Math.PI/180));
+    }
+    
+    public double labZtoLateralScan(double z){
+        return z*getImmersionRI()/(Math.sin(getOpmAngle()*Math.PI/180)); 
+        // return getImmersionRI()/(2*normal*Math.sin(getOpmAngle()*Math.PI/180));
+    }
+    
     public double getMirrorScanLength() {
         return mirrorScanLength;
     }
@@ -671,7 +698,7 @@ public class DeviceManager {
      * @param mirrorTriggerDistance trigger distance in um */
     public void setMirrorTriggerDistance(double mirrorTriggerDistance) {
         this.mirrorTriggerDistance = mirrorTriggerDistance;
-        deviceManagerLogger.info("Set triggerDistance to " + mirrorTriggerDistance);
+        deviceManagerLogger.info("Set mirror trigger distance to " + mirrorTriggerDistance);
         updateMaxTriggeredScanSpeed();  // the current max speed based on current exposure time
         upateMaxGlobalTriggeredScanSpeed();  // the lowest max speed across all channels/exposure times
     }
@@ -682,6 +709,8 @@ public class DeviceManager {
 
     public void setXyStageScanLength(double xyStageScanLength) {
         this.xyStageScanLength = xyStageScanLength;
+        deviceManagerLogger.info("Set xy stage scan length to " 
+                + xyStageScanLength);
     }
 
     public double getXyStageTriggerDistance() {
@@ -692,6 +721,9 @@ public class DeviceManager {
         this.xyStageTriggerDistance = xyStageTriggerDistance;
         updateMaxTriggeredScanSpeed();
         upateMaxGlobalTriggeredScanSpeed();
+        deviceManagerLogger.info("Set xy stage trigger distance to " 
+                + xyStageTriggerDistance);
+
     }
 
     public String getXyStageScanAxis() {
@@ -877,6 +909,15 @@ public class DeviceManager {
     public void setOpmAngle(double opmAngle) {
         this.opmAngle = opmAngle;
     }
+
+    public double getImmersionRI() {
+        return immersionRI;
+    }
+
+    public void setImmersionRI(double immersionRI) {
+        this.immersionRI = immersionRI;
+    }
+
 
     public boolean isSaveAcquisitionLogs() {
         return saveAcquisitionLogs;

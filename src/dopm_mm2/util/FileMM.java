@@ -27,8 +27,14 @@ public class FileMM {
     public FileMM() {
     }
 
+    public static Datastore createDatastore(String camName, String saveDir, 
+            boolean overwrite) throws IOException{
+        return createDatastore(camName, saveDir, overwrite, true);
+    }
+            
     public static Datastore createDatastore(
-            String camName, String saveDir, boolean overwrite) throws IOException{
+            String camName, String saveDir, 
+            boolean overwrite, boolean useNDtiff) throws IOException{
 	// just CAN NOT delete the directory in java for some reason
 	// so have to do a terrible alternative
 	Datastore img_ds;
@@ -67,7 +73,13 @@ public class FileMM {
             }
             // sc.message("Creating TIFF stack datastore in " + fullDir);
             fileLogger.info("Creating TIFF stack datastore in " + fullDir);
-            img_ds = mm_.data().createMultipageTIFFDatastore(fullDir, false, false);
+            
+            if (useNDtiff){
+                img_ds = mm_.data().createNDTIFFDatastore(fullDir);
+            } else {
+                img_ds = mm_.data().createMultipageTIFFDatastore(fullDir, false, false);
+            }
+            
 		
 	} catch (IOException ex) {
             // mmlog = mm_.getLogManager();

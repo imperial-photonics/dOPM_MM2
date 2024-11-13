@@ -79,6 +79,9 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     
     protected int maxDroppedFrames;
     
+    protected long endClockTimeMs;  // for estimating MDA's snap and overhead duration
+
+    
     // Use the "MDA" logger 
     protected static final Logger runnableLogger = 
         Logger.getLogger(MDARunnable.class.getName());
@@ -113,14 +116,22 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         
         XYStagePort = deviceSettings.getXyStageComPort();
         mirrorStagePort = deviceSettings.getMirrorStageComPort();
+        
+        endClockTimeMs = 0;
     }
     
     @Override
     public void run(){
         runnableLogger.info("In runnable's run()");
-        // Create log file                 
+        if (endClockTimeMs != 0){
+            runnableLogger.info(String.format(
+                    "MDA's snap and overheads added %d ms to acq",
+                    System.currentTimeMillis()-endClockTimeMs));
+        }
         
-        // Make camera fast
+        long start = System.currentTimeMillis();           
+        
+        // Make camera fast -- todo remove?
         try {
             core_.setProperty(camName, "ScanMode", 3);
         } catch (Exception e){
@@ -144,12 +155,16 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             }
         }
         
+        runnableLogger.info(String.format("Runnable setup inside run took %d ms", 
+                System.currentTimeMillis()-start));
+        
         // // // // // // // // // // // // // // // // // // // // // // // // 
         // ACQUISITION SECTION --------------------------------------------- //
         // ------- Do view 1 or view 2 (or both), calls runSingleView ------ //
         // // // // // // // // // // // // // // // // // // // // // // // // 
         
         // View 1
+        long view1start = System.currentTimeMillis();
         if (deviceSettings.isView1Imaged()){
             runnableLogger.info("Acquiring view 1");
             // this config should be set automatically if it doesnt exist from 
@@ -176,7 +191,13 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             }
 
         }
+        runnableLogger.info(String.format(
+                "View 1 acquisition (%s) run took %d ms", 
+                this.getClass().getName(),
+                System.currentTimeMillis()-view1start));
+        
         // View 2
+        long view2start = System.currentTimeMillis();
         if (deviceSettings.isView2Imaged()){
             runnableLogger.info("Acquiring view 2");
             try { 
@@ -196,6 +217,10 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 setStagePositionsToStart();
             }
         }
+        runnableLogger.info(String.format(
+                "View 2 acquisition (%s) run took %d ms", 
+                this.getClass().getName(),
+                System.currentTimeMillis()-view2start));
         
         // // // // // // // // // // // // // // // // // // // // // // // // 
         
@@ -210,6 +235,12 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         if (currentAcq!=null){  // should never be null, i removed the ability for that
             currentAcq.nextAcqPoint();
         }
+        
+        runnableLogger.info(String.format(
+                "Full acquisition in runnable %s took %d ms", 
+                this.getClass().getName(),
+                System.currentTimeMillis()-start));
+        endClockTimeMs = System.currentTimeMillis();
     }
     
     public void runSingleView(double currentViewAngle) throws Exception{
@@ -244,6 +275,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     
     // perhaps a little redundant atm
     protected void cleanupAcq(){
+        long start = System.currentTimeMillis();
         runnableLogger.info("Cleaning up acquisition, lasers -> off");
         try {
             core_.setProperty(DAQDOPort, "State", 0);
@@ -253,7 +285,6 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     + e.toString();
             runnableLogger.severe(err);
             logErrorWithWindow(err);
-            
         }
 
         try {
@@ -261,19 +292,22 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             if (core_.isSequenceRunning()){
                 core_.stopSequenceAcquisition();
                 String err = String.format(
-                        "Stopped previous acquisition in %.1f ms",
+                        "Previous sequence wasn't ended, stopped in %.1f ms",
                         (System.currentTimeMillis() - stopAcqStart) );
-                logErrorWithWindow(err);
+                runnableLogger.warning(err);
             }
         } catch (Exception e){
-                
+            logErrorWithWindow("Issue in stopping sequence " + e.toString());
         }
+        runnableLogger.info(String.format("cleanup took %d ms", 
+                System.currentTimeMillis()-start));
     }
     
     /** Reset stage positions and change them to the travel speed (fast)
      * 
      */
     protected void setStagePositionsToStart(){
+        long start = System.currentTimeMillis();
         try {
             TangoXYStage.setTangoAxisSpeed(
                     XYStage, deviceSettings.getXyStageTravelSpeed());
@@ -288,15 +322,22 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     + "positions after acquisition with " + 
                     e.getMessage());
         }
+        runnableLogger.info(String.format(
+                "Time taken moving stages to start: %d ms",
+                (System.currentTimeMillis() - start)));
     }
     
     protected void setupCameraTriggering() throws Exception{
+        long start = System.currentTimeMillis();
         core_.setProperty(camName, "TriggerPolarity","POSITIVE");
         core_.setProperty(camName, "TRIGGER SOURCE","EXTERNAL");
         core_.setProperty(camName, "OUTPUT TRIGGER KIND[0]","EXPOSURE");
         core_.setProperty(camName, "OUTPUT TRIGGER POLARITY[0]","POSITIVE");
         core_.setProperty(camName, "OUTPUT TRIGGER SOURCE[0]","TRIGGER");
         core_.setProperty(camName, "TRIGGER GLOBAL EXPOSURE","GLOBAL RESET");
+        runnableLogger.info(String.format(
+                "Time taken setting camera trigger settings: %d ms",
+                (System.currentTimeMillis() - start)));
     }
     
     /** Switches back to internal triggering: A bit pointless but just to keep 
@@ -360,6 +401,28 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             // retrivePositionLabels() <- USE THIS SOON TODO?
             
             runnableLogger.info("Getting more metadata");
+            
+            //test them all.....
+           
+            runnableLogger.info("angle " + currentViewAngle);
+            runnableLogger.info("filter " + deviceSettings.getCurrentFilter());
+            runnableLogger.info("laser " + deviceSettings.getCurrentLaser());
+            runnableLogger.info("power " + deviceSettings.getCurrentLaserPower());
+            runnableLogger.info("exposureMs " + core_.getExposure()); 
+            
+            runnableLogger.info("positionLabel " + currentAcq.getCurrentAcqPositionLabel());
+            runnableLogger.info("positionIdx " + currentAcq.getCurrentAcqPositionIdx());
+            runnableLogger.info("channelGroup " + currentAcq.getCurrentAcqChannel().channelGroup());
+            runnableLogger.info("channelIdx " + currentAcq.getCurrentAcqChannelIdx());
+            
+            runnableLogger.info("zSlice " + currentAcq.getCurrentAcqZ());
+            runnableLogger.info("zSliceIdx " + currentAcq.getCurrentAcqZIdx());
+            runnableLogger.info("time ms " + currentAcq.getCurrentAcqTime());
+            runnableLogger.info("time mins " + currentAcq.getCurrentAcqTime());
+            runnableLogger.info("timeIdx" + currentAcq.getCurrentAcqTimeIdx());
+
+
+            
             myPropertyMap = PropertyMaps.builder().
                 putDouble("angle", currentViewAngle).
                 putString("filter", deviceSettings.getCurrentFilter()).

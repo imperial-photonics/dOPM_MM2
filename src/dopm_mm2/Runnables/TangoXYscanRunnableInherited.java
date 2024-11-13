@@ -57,7 +57,9 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         double scanUndershoot = 10;  // um
         double scanOvershoot = scanUndershoot; 
         DisplayWindow display;
+        long start_;
         
+        start_ = System.currentTimeMillis();
         try {
             TangoXYStage.setTangoTriggerAxis(XYStagePort, scanAxis);
         } catch (Exception e){
@@ -71,7 +73,8 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
             throw new Exception("Failed to set tango trigger distance with " + 
                     e.getMessage());
         }
-        
+        runnableLogger.info(String.format("trigger axis and distance setup time %d ms", 
+                System.currentTimeMillis()-start_));
         // work out range so that an integer number of triggers has the correct
         // trigger distance (the tango trigger range is a bit like numpy 
         // linspace)
@@ -104,8 +107,8 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         
         ////////////////////////////////////////////////////////////////////////
         /////// I set dim earlier to 10, which means microns are used !! ///////
- 
-        
+         
+        start_ = System.currentTimeMillis();
         try {
             // set triggers and gets end point of trigger range
             actualTriggerScanEndUm = 
@@ -123,6 +126,10 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         double scanEndUm = actualTriggerScanEndUm + scanOvershoot;
         int nFrames = (int)(actualScanLength/triggerDistanceUm);
         
+        runnableLogger.info(String.format("Trigger interval set time %d ms", 
+                System.currentTimeMillis()-start_));
+        
+        start_ = System.currentTimeMillis();
         // move to start of scan (a little before trigger range start)
         try {
             TangoXYStage.setAxisPosition(XYStage, scanStartUm, scanAxis);
@@ -139,6 +146,8 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                     + "%s axis of tango with exception %s", 
                     scanAxis, e.getMessage()));
         }
+        runnableLogger.info(String.format("trigger enable and move to start time %d ms", 
+                System.currentTimeMillis()-start_));
         
         // Create datastore
         Datastore store;
@@ -169,13 +178,18 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         core_.setProperty(DAQDOPort, "Blanking", "On");
         
         // Prepare to grab frames from cam buffer
+        start_ = System.currentTimeMillis();
         core_.prepareSequenceAcquisition(camName);
         core_.startSequenceAcquisition(nFrames, 0, true);
+        runnableLogger.info(String.format("Sequence setup time %d ms", 
+            System.currentTimeMillis()-start_));
                 
         // start stage motion for triggered acquisition
         runnableLogger.info(String.format("Starting XY (%s) stage scanning "
                 + "[start: %.2f um, frames: %d, end %.2f um]",
                 scanAxis, scanStartUm, nFrames, scanEndUm));
+        
+        start_ = System.currentTimeMillis();
         try {
             TangoXYStage.setTangoAxisSpeed(XYStage, scanAxis, scanSpeed);
             TangoXYStage.setAxisPosition(XYStage, scanEndUm, scanAxis);
@@ -184,6 +198,8 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                     "Failed to move stage to %s end scan position %.1f um",
                     scanAxis, scanEndUm));
         }
+        runnableLogger.info(String.format("Move to start of scan time %d ms", 
+            System.currentTimeMillis()-start_));
         // Acquire volume in the trigger loop
         try{
             acquireTriggeredDataset(store, scanEndUm, nFrames);
@@ -212,6 +228,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         }
         
         // Disable triggering, stop sequence
+        start_ = System.currentTimeMillis();
         try {
             TangoXYStage.setTangoTriggerEnable(XYStagePort, scanAxis, 0);
             runnableLogger.info("Tango Error? " + 
@@ -222,7 +239,8 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                     + "%s axis of tango with exception %s", 
                     scanAxis, e.getMessage()));
         }
-        
+        runnableLogger.info(String.format("trigger disable time %d ms", 
+            System.currentTimeMillis()-start_));
         
     }
 }

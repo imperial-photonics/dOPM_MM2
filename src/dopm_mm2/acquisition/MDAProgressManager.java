@@ -118,13 +118,25 @@ public class MDAProgressManager {
         acqOrderMode = mdaSettings.acqOrderMode();
         
         zSlices = calculateZSlices();
-        channelSpecs = mdaSettings.channels();
+        List<ChannelSpec> channelSpecsIncludingUnticked = mdaSettings.channels();
+        channelSpecs = new ArrayList<>();
         timepointsMs = calculateTimepoints();
         multiStagePositions = retrieveMultiStagePositions();
         acqPositionLabels = retrivePositionLabels();
+        acquisitionManagerLogger.info("position labels: " + acqPositionLabels);
+        
+        ChannelSpec chanSpec_;
+        for (int n_c=0; n_c<mdaSettings.channels().size(); n_c++){
+            chanSpec_ = channelSpecsIncludingUnticked.get(n_c);
+            if (chanSpec_.useChannel()){
+                channelSpecs.add(chanSpec_);
+            }
+        }
+        // int sum = channelSpecs.stream().mapToInt(chanspec -> chanspec.useChannel() ? 1:0 ).sum();
         
         nZPts = zSlices.size();
         nChannelPts = channelSpecs.size();
+        
         nTimePts = timepointsMs.size();
         nPositionPts = multiStagePositions.size();
         
