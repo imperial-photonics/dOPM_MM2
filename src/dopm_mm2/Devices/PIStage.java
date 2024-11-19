@@ -51,7 +51,6 @@ public class PIStage {
         }
     }
     
-    
     /*
     The following commands wrap the PI ASCII commands for controlling the trigger output from the 
     controller (C-413). 
@@ -131,8 +130,18 @@ public class PIStage {
         }
         */
     }
-        
     
+    /**
+     * Useful for making sure the PI trigger is low in the OR gate
+     * @param port
+     * @throws Exception 
+     */
+    public static void setPITriggerLow(String port) throws Exception {
+        /* Initialise the PI stage basic trigger output settings */
+        setPITriggerEnable(port, 1, 0);  // disable triggering
+        setPIDigitalOut(port, 1, 0);  // set digital (trigger) out to low
+    }
+            
     public static void setupPITriggering(String port, int device) throws Exception {
         /* Initialise the PI stage basic trigger output settings */
         setPITriggerEnable(port, device, 0);  // disable triggering

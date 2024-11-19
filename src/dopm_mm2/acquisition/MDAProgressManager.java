@@ -21,7 +21,7 @@ import org.micromanager.acquisition.SequenceSettings;
 
 import com.google.common.collect.Sets;
 import com.google.common.collect.ImmutableSet;
-import dopm_mm2.Devices.DeviceManager;
+import dopm_mm2.Devices.DeviceSettingsManager;
 
 import java.util.Set;
 import java.util.stream.Stream;
@@ -493,8 +493,10 @@ public class MDAProgressManager {
         String viewString = String.format("View %d", currentView);
         // StrVector viewStates = core_.getAvailableConfigs(viewString);
         core_.setConfig("dOPM View", viewString);
+        acquisitionManagerLogger.info("set config to " + currentView);
         core_.waitForConfig("dOPM View", viewString);
         this.currentView = currentView;
+
     }
 
     public int getnChannelPts() {

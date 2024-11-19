@@ -159,10 +159,13 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                     putDouble("trigger distance um", triggerDistanceUm).
                     putDouble("scan length um", actualScanLength).
                         build();
-
+                
+                SummaryMetadata metadata = mm_.data().summaryMetadataBuilder().
+                        zStepUm(triggerDistanceUm).build();
+                
                 // feed datastore extra metadata info specific to stage scan
-                store = createDatastore(myPropertyMap);
-       
+                store = createDatastore(metadata, myPropertyMap);
+                       
             } catch (IOException ie){
                 throw ie;
             } catch (Exception e){

@@ -25,12 +25,12 @@ import org.micromanager.acquisition.AcquisitionManager;
 import org.micromanager.acquisition.ChannelSpec;
 import org.micromanager.acquisition.SequenceSettings;
 
-/** DeviceManager: class for handling device names in microManager configuration
+/** DeviceSettingsManager: class for handling device names in microManager configuration
  *
  * @author lnr19
  */
-public class DeviceManager {
-    private static final Logger deviceManagerLogger = Logger.getLogger(DeviceManager.class.getName()); 
+public class DeviceSettingsManager {
+    private static final Logger deviceManagerLogger = Logger.getLogger(DeviceSettingsManager.class.getName()); 
 
     public final static int MIRROR_SCAN = 0;
     public final static int YSTAGE_SCAN = 1;
@@ -88,6 +88,8 @@ public class DeviceManager {
     
     private double immersionRI;
     private double opmAngle;
+    private double magnification;
+    
     private boolean imageView1;
     private boolean imageView2;
     private boolean saveAcquisitionLogs;
@@ -113,7 +115,7 @@ public class DeviceManager {
     public CMMCore core_ = null;
     public Studio mm_ = null;
     
-    public DeviceManager(){
+    public DeviceSettingsManager(){
         core_ = MMStudioInstance.getCore();
         mm_ = MMStudioInstance.getStudio();
         initVars();
@@ -123,7 +125,7 @@ public class DeviceManager {
      *
      * @param cmmcore 
      */
-    public DeviceManager(CMMCore cmmcore) {
+    public DeviceSettingsManager(CMMCore cmmcore) {
         core_ = cmmcore;
         mm_ = MMStudioInstance.getStudio();
         initVars();
@@ -188,6 +190,7 @@ public class DeviceManager {
         imageView1 = true;
         imageView2 = false;
         opmAngle = 45;
+        magnification = 20*1.4*200/180;
         saveAcquisitionLogs = true;
         
         exposureTime = 5.0;
@@ -226,8 +229,9 @@ public class DeviceManager {
         *   [10] DAQDOport,daqDOPortName,\n  
         * ---------------------
      */
-    public void loadSystemSettings(File configDetailsCsv){
-        try (BufferedReader br = new BufferedReader(new FileReader(configDetailsCsv))) {
+    public void loadSystemSettings(String configDetailsCsv){
+        try (BufferedReader br = new BufferedReader(
+                new FileReader(new File(configDetailsCsv)))) {
 
             List<List<String>> configData = new ArrayList<>();
             String line;
@@ -280,12 +284,12 @@ public class DeviceManager {
         } catch (FileNotFoundException ex) {
             deviceManagerLogger.warning(ex.getMessage());
             JOptionPane.showMessageDialog(null,
-                    String.format("No config file found at %s",configDetailsCsv.getAbsoluteFile()),
+                    String.format("No config file found at %s",configDetailsCsv),
                     "File not found",JOptionPane.ERROR_MESSAGE);
         } catch (IOException ex){
             deviceManagerLogger.warning(ex.getMessage());
             JOptionPane.showMessageDialog(null,
-                    String.format("Failed to load file at %s",configDetailsCsv.getAbsoluteFile()),
+                    String.format("Failed to load file at %s",configDetailsCsv),
                     "File not found",JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex){
             deviceManagerLogger.warning(ex.getMessage());
@@ -355,9 +359,9 @@ public class DeviceManager {
     public String getCurrentLaser(){
         String laser = "";
         List<String> lasers = new ArrayList<>();
-        if (!laserLabels.isEmpty()){
+        if (laserLabels.isEmpty()){
             lasers = laserDeviceNames;
-        } else if (!laserDeviceNames.isEmpty()){
+        } else if (laserDeviceNames.isEmpty()){
             lasers = laserLabels;
         } else {
             deviceManagerLogger.warning(
@@ -672,12 +676,12 @@ public class DeviceManager {
     }
     
     public double lateralScanToLabZ(double lateral){
-        return lateral*Math.sin(getOpmAngle()*Math.PI/180)/getImmersionRI();
+        return lateralScanToMirrorNormal(lateral)*Math.cos(0.5*getOpmAngle());
         // return getImmersionRI()/(2*normal*Math.sin(getOpmAngle()*Math.PI/180));
     }
     
     public double labZtoLateralScan(double z){
-        return z*getImmersionRI()/(Math.sin(getOpmAngle()*Math.PI/180)); 
+        return mirrorNormaltoLateralScan(z/Math.cos(0.5*getOpmAngle()));
         // return getImmersionRI()/(2*normal*Math.sin(getOpmAngle()*Math.PI/180));
     }
     
@@ -850,7 +854,7 @@ public class DeviceManager {
     public void setMirrorStageTravelSpeed(double mirrorStageTravelSpeed) {
         this.mirrorStageTravelSpeed = mirrorStageTravelSpeed;
         // will move this stuff to backend...
-        // DeviceManager.setMirrorStageSpeed(mirrorStageTravelSpeed);
+        // DeviceSettingsManager.setMirrorStageSpeed(mirrorStageTravelSpeed);
     }
 
     public double getMirrorStageCurrentScanSpeed() {
@@ -1086,17 +1090,33 @@ public class DeviceManager {
         }
     }
     
-    // not used, but a class with struct-like pattern for laser devices 
-    // controlled by DAQ AO
-    public class LaserDevice{
+    // struct-like pattern for laser devices 
+    // controlled by USB
+    public class USBLaserDevice{
         private String name;
+        private String wavelength;
         private String lineDO;
-        private String lineAO;
+        private String enableGroup;
+        private String powerGroup;
+        // private String lineAO;
+        private String type;
         
-        void LaserDevice(String name, String lineDO, String lineAO){
+        void LaserDevice(String name, String wavelength, String lineDO){
             this.name = name;
             this.lineDO = lineDO;
-            this.lineAO = lineAO;
+            this.wavelength = wavelength;
+            // this.lineAO = lineAO;
+            this.type = "DAQ laser";
+            this.powerGroup = String.format("Power %s", wavelength);
+        }
+        
+        void LaserDevice(String name, String wavelength){
+            this.name = name;
+            this.enableGroup = String.format("%s enable", wavelength);
+            this.wavelength = wavelength;
+            // this.lineAO = lineAO;
+            this.type = "DAQ laser";
+            this.powerGroup = String.format("Power %s", wavelength);
         }
     }
 }

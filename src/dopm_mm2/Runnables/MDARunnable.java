@@ -4,7 +4,9 @@
  */
 package dopm_mm2.Runnables;
 
-import dopm_mm2.Devices.DeviceManager;
+import dopm_mm2.Devices.DeviceSettingsManager;
+import dopm_mm2.Devices.PIStage;
+import dopm_mm2.Devices.TangoXYStage;
 import dopm_mm2.GUI.dOPM_hostframe;
 import static dopm_mm2.Runnables.AbstractAcquisitionRunnable.runnableLogger;
 import dopm_mm2.acquisition.MDAProgressManager;
@@ -36,7 +38,7 @@ public class MDARunnable implements Runnable {
     private final CMMCore core_;
     private final Studio mm_;
     private final dOPM_hostframe frame_;
-    private final DeviceManager deviceSettings;
+    private final DeviceSettingsManager deviceSettings;
     private static final Logger mdaRunnableLogger = 
             Logger.getLogger(MDARunnable.class.getName());
     private AcquisitionManager acq_;
@@ -121,7 +123,7 @@ public class MDARunnable implements Runnable {
             acqTimestamp = formattedDate;
             String saveDirName = String.format("%s_%s", scanTypeLabel, formattedDate);
 
-            File dataOutRootDir = frame_.getDataFolderDir();//.getAbsolutePath();
+            String dataOutRootDir = frame_.getDataFolderDir();//.getAbsolutePath();
             // String logOutDir = frame_.getDataFolderDir().getAbsolutePath();
 
             // make the dirs in a timestamped subdir so it doesn't overwrite
@@ -132,20 +134,21 @@ public class MDARunnable implements Runnable {
             
             // info
             String mdaInfo =
-                String.format("%d channels", mdaMgr.getnChannelPts()) 
+                String.format("\n%d channels: ", mdaMgr.getnChannelPts()) 
                     + mdaMgr.getChannelNames() +
-                String.format("%d positions", mdaMgr.getnPositionPts())
+                String.format("\n%d positions: ", mdaMgr.getnPositionPts())
                     + mdaMgr.getPositionLabels() +
-                String.format("%d z slices", mdaMgr.getnZPts())
+                String.format("\n%d z slices: ", mdaMgr.getnZPts())
                     + mdaMgr.getzSlices() + "(um)" +
-                String.format("%d timepoints", mdaMgr.getnTimePts())
+                String.format("\n%d timepoints: ", mdaMgr.getnTimePts())
                     + mdaMgr.getTimepointsMs() + "(ms)" +
-                "View 1? "
+                "\nView 1? "
                     + (deviceSettings.isView1Imaged() ? "Yes" : "No") +
-                "View 2? " 
+                "\nView 2? " 
                     + (deviceSettings.isView2Imaged() ? "Yes" : "No");
             
-            mdaRunnableLogger.info("Starting dOPM MDA with" + mdaInfo);
+            mdaRunnableLogger.info("Starting dOPM MDA with:" + mdaInfo);
+            
                                                 
             try {
                 acq_.clearRunnables();
@@ -163,7 +166,7 @@ public class MDARunnable implements Runnable {
                 mdaRunnableLogger.info("Running " + snapRunnable.getClass().getName());
                 acq_.clearRunnables();  // remove runnable
 
-                
+                core_.setProperty(deviceSettings.getLaserBlankingDOport(), "Blanking", "On");
 
             } catch (Exception e){  // look into using micromanager exceptions
                 mdaRunnableLogger.severe("Failed in volume acquisition:" + 

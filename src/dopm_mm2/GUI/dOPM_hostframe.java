@@ -10,19 +10,16 @@ import org.micromanager.Studio;
 import mmcorej.CMMCore;
 import org.micromanager.ScriptController;
 import org.micromanager.data.Datastore;
-import dopm_mm2.Devices.DeviceManager;
-import dopm_mm2.Runnables.PIScanRunnable;
-import dopm_mm2.Runnables.PIScanRunnableInherited;
+import dopm_mm2.Devices.DeviceSettingsManager;
 import dopm_mm2.Runnables.MDARunnable;
 import dopm_mm2.util.MMStudioInstance;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
-import org.micromanager.acquisition.ChannelSpec;
+import org.micromanager.propertymap.MutablePropertyMapView;
 
 /**
  *
@@ -47,18 +44,19 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private Datastore datastore;
     
     // Base folder directory and other directories
-    private File baseFolderDir;
-    private File settingsFolderDir;
-    private File dataFolderDir;
+    private String baseFolderDir;
+    private String settingsFolderDir;
+    private String dataFolderDir;
     
-    private File defaultConfigFile;
+    private String configFilePath;
     
     private boolean saveImgToDisk;
     private boolean runnableIsRunning;
     
     // Device settings object
-    DeviceManager deviceSettings;    
-
+    private DeviceSettingsManager deviceSettings;    
+    private final MutablePropertyMapView dopmUserProfile;
+    
     //Other settings ?
     // ...
     
@@ -75,24 +73,35 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         frame_ = this;
         frame_.setTitle("dOPM controller for Micro-manager 2");
         frame_.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+        
+        dopmUserProfile = mm_.getUserProfile().getSettings(this.getClass());
                 
         // set logging format for whole app
         System.setProperty(
             "java.util.logging.SimpleFormatter.format",
-            "[%1$tF %1$tT %1$tL] [%4$-7s] %5$s %n");
+            "[%1$tF %1$tT %1$tL] [%4$-7s] %2$s %5$s %n");
         
         makeDirsAndLog();
         
         saveImgToDisk = false;
-        baseFolderDir = new File("A:\\leo\\micromanager");
-        dataFolderDir = new File(baseFolderDir, "data");
-        settingsFolderDir = new File(baseFolderDir, "settings");
         
-        defaultConfigFile = new File("C:\\Users\\CRICKOPMuser\\Documents\\" + 
-                "Leo\\micromanager\\dopm_plugin\\defaultDeviceConfig.csv").getAbsoluteFile();
+        String defaultBasedir = new File(
+                System.getenv("USERPROFILE"), "dopmData").getAbsolutePath();
+        
+        baseFolderDir = dopmUserProfile.getString(
+                "baseFolderDir", defaultBasedir);
+
+        dataFolderDir = new File(baseFolderDir, "data").getAbsolutePath();
+        settingsFolderDir = new File(baseFolderDir, "settings").getAbsolutePath();
+        
+        String defaultConfigPath = new File(System.getenv("USERPROFILE"), 
+                "dopm_plugin/defaultDeviceConfig.csv").getAbsolutePath();
+        
+        configFilePath = dopmUserProfile.getString(
+                "configFilePath", defaultConfigPath);
                 
-        deviceSettings = new DeviceManager(core_);
-        deviceSettings.loadSystemSettings(defaultConfigFile);
+        deviceSettings = new DeviceSettingsManager(core_);
+        deviceSettings.loadSystemSettings(configFilePath);
         
         runnableIsRunning = false;
         
@@ -119,8 +128,8 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
             String formattedDate = date.format(myFormatObj);
             
-            String appdata = System.getenv("APPDATA");
-            dopm_mm2Logdir = new File(appdata, "../Local/Micro-Manager/dopmLogs");
+            String appdata = System.getenv("LOCALAPPDATA");
+            dopm_mm2Logdir = new File(appdata, "Micro-Manager/dopmLogs");
             dopm_mm2Logdir.mkdir();
             dopm_mm2Logfile = new File(dopm_mm2Logdir, String.format(
                     "dopmRootLog%s.log", formattedDate));
@@ -175,6 +184,16 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         snapTestButton = new javax.swing.JButton();
         jPanel1 = new javax.swing.JPanel();
         jTabbedPane1 = new javax.swing.JTabbedPane();
+        mirrorScanSettingsPanel = new javax.swing.JPanel();
+        mirrorScanLengthField = new javax.swing.JTextField();
+        mirrorScanSpeedField = new javax.swing.JTextField();
+        mirrorScanIntervalField = new javax.swing.JTextField();
+        mirrorMaxSpeedCheckBox = new javax.swing.JCheckBox();
+        fracOfMaxMirrorField = new javax.swing.JTextField();
+        fracOfMaxMirrorLabel = new javax.swing.JLabel();
+        scanLengthLabel1 = new javax.swing.JLabel();
+        scanSpeedLabel1 = new javax.swing.JLabel();
+        scanIntervalLabel1 = new javax.swing.JLabel();
         xyStageScanSettingsPanel = new javax.swing.JPanel();
         xyScanLengthField = new javax.swing.JTextField();
         xyScanSpeedField = new javax.swing.JTextField();
@@ -183,19 +202,9 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         scanLengthLabel = new javax.swing.JLabel();
         scanSpeedLabel = new javax.swing.JLabel();
         scanIntervalLabel = new javax.swing.JLabel();
-        pcOfMaxXyLabel = new javax.swing.JLabel();
-        pcOfMaxXyField = new javax.swing.JTextField();
+        fracOfMaxXyLabel = new javax.swing.JLabel();
+        fracOfMaxXyField = new javax.swing.JTextField();
         jPanel2 = new javax.swing.JPanel();
-        mirrorScanSettingsPanel = new javax.swing.JPanel();
-        mirrorScanLengthField = new javax.swing.JTextField();
-        mirrorScanSpeedField = new javax.swing.JTextField();
-        mirrorScanIntervalField = new javax.swing.JTextField();
-        mirrorMaxSpeedCheckBox = new javax.swing.JCheckBox();
-        pcOfMaxMirrorField = new javax.swing.JTextField();
-        pcOfMaxMirrorLabel = new javax.swing.JLabel();
-        scanLengthLabel1 = new javax.swing.JLabel();
-        scanSpeedLabel1 = new javax.swing.JLabel();
-        scanIntervalLabel1 = new javax.swing.JLabel();
         triggerModeLabel = new javax.swing.JLabel();
         triggerModeComboBox = new javax.swing.JComboBox<>();
         mirrorScanRadioButton = new javax.swing.JRadioButton();
@@ -215,7 +224,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         saveDirectoryLabel.setText("Save directory");
 
-        saveDirectoryField.setText(getBaseFolderDir().getAbsolutePath());
+        saveDirectoryField.setText(getBaseFolderDir());
         saveDirectoryField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 saveDirectoryFieldActionPerformed(evt);
@@ -255,7 +264,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                     .addGroup(fileSettingsPanelLayout.createSequentialGroup()
                         .addContainerGap()
                         .addComponent(saveToDiskCheckBox)))
-                .addContainerGap(105, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         fileSettingsPanelLayout.setVerticalGroup(
             fileSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -298,7 +307,120 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         jPanel1.setBorder(javax.swing.BorderFactory.createTitledBorder("Scan settings"));
 
         jTabbedPane1.setBorder(javax.swing.BorderFactory.createTitledBorder(""));
-        jTabbedPane1.setName("Mirror scan"); // NOI18N
+        jTabbedPane1.setToolTipText("");
+        jTabbedPane1.setName("Scan settings tabbedPane"); // NOI18N
+
+        mirrorScanSettingsPanel.setPreferredSize(new java.awt.Dimension(411, 90));
+
+        mirrorScanLengthField.setText(String.format("%.1f", deviceSettings.getMirrorScanLength()));
+        mirrorScanLengthField.setInputVerifier(new typeVerifierDouble());
+        mirrorScanLengthField.setPreferredSize(new java.awt.Dimension(100, 22));
+        mirrorScanLengthField.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mirrorScanLengthFieldActionPerformed(evt);
+            }
+        });
+
+        mirrorScanSpeedField.setText(String.format("%.4f", deviceSettings.getMirrorStageGlobalScanSpeed()));
+        mirrorScanSpeedField.setActionCommand("<Not Set>");
+        mirrorScanSpeedField.setInputVerifier(new typeVerifierDouble());
+        mirrorScanSpeedField.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mirrorScanSpeedFieldActionPerformed(evt);
+            }
+        });
+
+        mirrorScanIntervalField.setText(String.format("%.2f", deviceSettings.getMirrorTriggerDistance()));
+        mirrorScanIntervalField.setInputVerifier(new typeVerifierDouble());
+        mirrorScanIntervalField.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mirrorScanIntervalFieldActionPerformed(evt);
+            }
+        });
+
+        mirrorMaxSpeedCheckBox.setText("Max");
+        mirrorMaxSpeedCheckBox.setToolTipText("Tick to use fastest possible scanning speed for given settings");
+        mirrorMaxSpeedCheckBox.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
+        mirrorMaxSpeedCheckBox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mirrorMaxSpeedCheckBoxActionPerformed(evt);
+            }
+        });
+
+        fracOfMaxMirrorField.setText(String.format("%.2f",deviceSettings.getScanSpeedSafetyFactorMirror()));
+        fracOfMaxMirrorField.setToolTipText("The percentage of the maximum theoretical scan speed, 95% is recommended");
+        fracOfMaxMirrorField.setInputVerifier(new pcVerifier());
+        fracOfMaxMirrorField.setPreferredSize(new java.awt.Dimension(100, 22));
+        fracOfMaxMirrorField.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                fracOfMaxMirrorFieldActionPerformed(evt);
+            }
+        });
+
+        fracOfMaxMirrorLabel.setText("Fraction of Max");
+
+        scanLengthLabel1.setText("Z' scan length (µm)");
+        scanLengthLabel1.setToolTipText("Scan length in z' (normal to imaged plane direction)");
+
+        scanSpeedLabel1.setText("Scan speed (µm/ms)");
+        scanSpeedLabel1.setToolTipText("Set a \"global\" scan speed for all channels, ticking Max will ignore this. Speed is physical PI stage lateral scan speed.");
+
+        scanIntervalLabel1.setText("Z' scan interval (µm)");
+
+        javax.swing.GroupLayout mirrorScanSettingsPanelLayout = new javax.swing.GroupLayout(mirrorScanSettingsPanel);
+        mirrorScanSettingsPanel.setLayout(mirrorScanSettingsPanelLayout);
+        mirrorScanSettingsPanelLayout.setHorizontalGroup(
+            mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
+                            .addComponent(scanSpeedLabel1)
+                            .addGap(7, 7, 7))
+                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, mirrorScanSettingsPanelLayout.createSequentialGroup()
+                            .addComponent(scanLengthLabel1)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, mirrorScanSettingsPanelLayout.createSequentialGroup()
+                        .addComponent(scanIntervalLabel1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
+                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(mirrorScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(mirrorScanLengthField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
+                        .addComponent(mirrorScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(mirrorMaxSpeedCheckBox, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(fracOfMaxMirrorLabel)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(fracOfMaxMirrorField, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(11, Short.MAX_VALUE))
+        );
+        mirrorScanSettingsPanelLayout.setVerticalGroup(
+            mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(mirrorScanLengthField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(scanLengthLabel1))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(mirrorMaxSpeedCheckBox)
+                        .addComponent(fracOfMaxMirrorField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(fracOfMaxMirrorLabel))
+                    .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(mirrorScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(scanSpeedLabel1)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(scanIntervalLabel1)
+                    .addComponent(mirrorScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+
+        jTabbedPane1.addTab("Mirror scan", mirrorScanSettingsPanel);
 
         xyScanLengthField.setText(String.format("%.1f", deviceSettings.getXyStageScanLength()));
         xyScanLengthField.setInputVerifier(new typeVerifierDouble());
@@ -329,7 +451,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         });
 
         xyMaxSpeedCheckBox.setText("Max");
-        xyMaxSpeedCheckBox.setToolTipText("Make scan speed the maximum possible for each channel, defined by exposure time");
+        xyMaxSpeedCheckBox.setToolTipText("Tick to use fastest possible scanning speed for given settings");
         xyMaxSpeedCheckBox.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
         xyMaxSpeedCheckBox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -344,15 +466,15 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         scanIntervalLabel.setText("Scan interval (µm)");
 
-        pcOfMaxXyLabel.setText("% of Max");
+        fracOfMaxXyLabel.setText("Fraction of Max");
 
-        pcOfMaxXyField.setText(String.format("%.2f",deviceSettings.getScanSpeedSafetyFactorXy()));
-        pcOfMaxXyField.setToolTipText("The percentage of the maximum theoretical scan speed, 95% is recommended");
-        pcOfMaxXyField.setInputVerifier(new pcVerifier());
-        pcOfMaxXyField.setPreferredSize(new java.awt.Dimension(100, 22));
-        pcOfMaxXyField.addActionListener(new java.awt.event.ActionListener() {
+        fracOfMaxXyField.setText(String.format("%.2f",deviceSettings.getScanSpeedSafetyFactorXy()));
+        fracOfMaxXyField.setToolTipText("The percentage of the maximum theoretical scan speed, 95% is recommended");
+        fracOfMaxXyField.setInputVerifier(new pcVerifier());
+        fracOfMaxXyField.setPreferredSize(new java.awt.Dimension(100, 22));
+        fracOfMaxXyField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                pcOfMaxXyFieldActionPerformed(evt);
+                fracOfMaxXyFieldActionPerformed(evt);
             }
         });
 
@@ -372,17 +494,12 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         xyStageScanSettingsPanelLayout.setHorizontalGroup(
             xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, xyStageScanSettingsPanelLayout.createSequentialGroup()
-                .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(xyStageScanSettingsPanelLayout.createSequentialGroup()
-                            .addGap(24, 24, 24)
-                            .addComponent(scanLengthLabel))
-                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, xyStageScanSettingsPanelLayout.createSequentialGroup()
-                            .addContainerGap()
-                            .addComponent(scanIntervalLabel)))
-                    .addGroup(xyStageScanSettingsPanelLayout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(scanSpeedLabel)))
+                        .addComponent(scanIntervalLabel)
+                        .addComponent(scanLengthLabel))
+                    .addComponent(scanSpeedLabel))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(xyScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -392,11 +509,11 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(xyMaxSpeedCheckBox)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(pcOfMaxXyLabel)
+                        .addComponent(fracOfMaxXyLabel)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(pcOfMaxXyField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                        .addComponent(fracOfMaxXyField, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         xyStageScanSettingsPanelLayout.setVerticalGroup(
@@ -411,125 +528,18 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                     .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(xyScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(xyMaxSpeedCheckBox)
-                        .addComponent(pcOfMaxXyLabel)
-                        .addComponent(pcOfMaxXyField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(fracOfMaxXyLabel)
+                        .addComponent(fracOfMaxXyField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(scanSpeedLabel))
                     .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(xyScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(scanIntervalLabel))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(12, Short.MAX_VALUE))
         );
 
         jTabbedPane1.addTab("XY Stage scan", xyStageScanSettingsPanel);
-
-        mirrorScanSettingsPanel.setPreferredSize(new java.awt.Dimension(396, 90));
-
-        mirrorScanLengthField.setText(String.format("%.1f", deviceSettings.getMirrorScanLength()));
-        mirrorScanLengthField.setInputVerifier(new typeVerifierDouble());
-        mirrorScanLengthField.setPreferredSize(new java.awt.Dimension(100, 22));
-        mirrorScanLengthField.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mirrorScanLengthFieldActionPerformed(evt);
-            }
-        });
-
-        mirrorScanSpeedField.setText(String.format("%.4f", deviceSettings.getMirrorStageGlobalScanSpeed()));
-        mirrorScanSpeedField.setActionCommand("<Not Set>");
-        mirrorScanSpeedField.setInputVerifier(new typeVerifierDouble());
-        mirrorScanSpeedField.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mirrorScanSpeedFieldActionPerformed(evt);
-            }
-        });
-
-        mirrorScanIntervalField.setText(String.format("%.2f", deviceSettings.getMirrorTriggerDistance()));
-        mirrorScanIntervalField.setInputVerifier(new typeVerifierDouble());
-        mirrorScanIntervalField.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mirrorScanIntervalFieldActionPerformed(evt);
-            }
-        });
-
-        mirrorMaxSpeedCheckBox.setText("Max");
-        mirrorMaxSpeedCheckBox.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
-        mirrorMaxSpeedCheckBox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mirrorMaxSpeedCheckBoxActionPerformed(evt);
-            }
-        });
-
-        pcOfMaxMirrorField.setText(String.format("%.2f",deviceSettings.getScanSpeedSafetyFactorMirror()));
-        pcOfMaxMirrorField.setInputVerifier(new pcVerifier());
-        pcOfMaxMirrorField.setPreferredSize(new java.awt.Dimension(100, 22));
-        pcOfMaxMirrorField.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                pcOfMaxMirrorFieldActionPerformed(evt);
-            }
-        });
-
-        pcOfMaxMirrorLabel.setText("% of Max");
-
-        scanLengthLabel1.setText("Scan length (µm)");
-
-        scanSpeedLabel1.setText("Scan speed (µm/ms)");
-
-        scanIntervalLabel1.setText("Scan interval (µm)");
-
-        javax.swing.GroupLayout mirrorScanSettingsPanelLayout = new javax.swing.GroupLayout(mirrorScanSettingsPanel);
-        mirrorScanSettingsPanel.setLayout(mirrorScanSettingsPanelLayout);
-        mirrorScanSettingsPanelLayout.setHorizontalGroup(
-            mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
-                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
-                        .addGap(24, 24, 24)
-                        .addComponent(scanLengthLabel1))
-                    .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(scanSpeedLabel1))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, mirrorScanSettingsPanelLayout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(scanIntervalLabel1)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(mirrorScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(mirrorScanLengthField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
-                        .addComponent(mirrorScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(mirrorMaxSpeedCheckBox, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(pcOfMaxMirrorLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 50, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(pcOfMaxMirrorField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-        mirrorScanSettingsPanelLayout.setVerticalGroup(
-            mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(mirrorScanLengthField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(scanLengthLabel1))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(mirrorMaxSpeedCheckBox)
-                        .addComponent(pcOfMaxMirrorField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(pcOfMaxMirrorLabel))
-                    .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(mirrorScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(scanSpeedLabel1)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(scanIntervalLabel1)
-                    .addComponent(mirrorScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-
-        jTabbedPane1.addTab("Mirror scan", mirrorScanSettingsPanel);
 
         triggerModeLabel.setText("Trigger mode");
 
@@ -729,9 +739,9 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         int returnVal = fc.showDialog(this, "Select");
         
         if (returnVal == JFileChooser.APPROVE_OPTION){
-            baseFolderDir = fc.getSelectedFile();
-            saveDirectoryField.setText(baseFolderDir.getAbsolutePath());
-            setDataFolderDir(new File(baseFolderDir, "data"));
+            setBaseFolderDir(fc.getSelectedFile().getAbsolutePath());
+            // and update the GUI too
+            saveDirectoryField.setText(baseFolderDir);
         }
     }//GEN-LAST:event_browseDirectoryFieldActionPerformed
 
@@ -774,7 +784,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
     
     private void saveDirectoryFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveDirectoryFieldActionPerformed
-        setBaseFolderDir(new File(saveDirectoryField.getText()));
+        setBaseFolderDir(saveDirectoryField.getText());
     }//GEN-LAST:event_saveDirectoryFieldActionPerformed
 
     private void snapTestButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_snapTestButtonActionPerformed
@@ -792,8 +802,8 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         int returnVal = fc.showDialog(this, "Select");
 
         if (returnVal == JFileChooser.APPROVE_OPTION){
-            File configFile = fc.getSelectedFile();
-            setDefaultConfigFile(configFile);
+            String configFile = fc.getSelectedFile().getAbsolutePath();
+            setConfigFilePath(configFile);
             deviceSettings.loadSystemSettings(configFile);
         }   
     }//GEN-LAST:event_openDeviceConfigMenuItemActionPerformed
@@ -801,19 +811,19 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
     private void mirrorScanRadioButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mirrorScanRadioButtonActionPerformed
         if (mirrorScanRadioButton.isSelected()){
-            deviceSettings.setScanType(DeviceManager.MIRROR_SCAN);
+            deviceSettings.setScanType(DeviceSettingsManager.MIRROR_SCAN);
         }
     }//GEN-LAST:event_mirrorScanRadioButtonActionPerformed
 
     private void xScanRadioButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_xScanRadioButtonActionPerformed
         if (xScanRadioButton.isSelected()){
-            deviceSettings.setScanType(DeviceManager.XSTAGE_SCAN);
+            deviceSettings.setScanType(DeviceSettingsManager.XSTAGE_SCAN);
         }
     }//GEN-LAST:event_xScanRadioButtonActionPerformed
 
     private void yScanRadioButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_yScanRadioButtonActionPerformed
         if (yScanRadioButton.isSelected()){
-            deviceSettings.setScanType(DeviceManager.YSTAGE_SCAN);
+            deviceSettings.setScanType(DeviceSettingsManager.YSTAGE_SCAN);
         }
     }//GEN-LAST:event_yScanRadioButtonActionPerformed
 
@@ -858,18 +868,18 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_mirrorMaxSpeedCheckBoxActionPerformed
 
     private void mirrorScanIntervalFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mirrorScanIntervalFieldActionPerformed
-        
+        // TODO GET THIS COORD TRANSFORM CORRECT
         // value is supplied in normal coordinates
-        double scanIntervalMirrorZprime =
+        double scanInterval =
                 Double.parseDouble(mirrorScanIntervalField.getText());
         // convert to actual lateral scan coordinates
-        double scanIntervalLateral = deviceSettings.lateralScanToLabZ(
-               scanIntervalMirrorZprime);
+        // double scanIntervalLateral 
+        //= deviceSettings.lateralScanToLabZ(scanIntervalMirrorZprime);
         dOPM_hostframeLogger.info("parsing scan length as " + 
-                scanIntervalMirrorZprime);
-        dOPM_hostframeLogger.info("set lateral mirror scan trigger dist to " + 
-                scanIntervalLateral);
-        deviceSettings.setMirrorTriggerDistance(scanIntervalLateral);
+                scanInterval);
+        // dOPM_hostframeLogger.info("set lateral mirror scan trigger dist to " + 
+        //         scanIntervalLateral);
+        deviceSettings.setMirrorTriggerDistance(scanInterval);
     }//GEN-LAST:event_mirrorScanIntervalFieldActionPerformed
 
     private void mirrorScanSpeedFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mirrorScanSpeedFieldActionPerformed
@@ -883,27 +893,26 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_mirrorScanSpeedFieldActionPerformed
 
     private void mirrorScanLengthFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mirrorScanLengthFieldActionPerformed
-        String scanLengthZprimeStr = mirrorScanLengthField.getText();
-        double scanLengthZprime = 
-                Double.parseDouble(scanLengthZprimeStr);
+        double scanLength = 
+                Double.parseDouble(mirrorScanLengthField.getText());
         // convert from z remote scan coordinates (z to mirror lateral)
-        double scanLengthLateral = deviceSettings.lateralScanToLabZ(scanLengthZprime);
-        dOPM_hostframeLogger.info("parsing scan length (z) as " + scanLengthZprimeStr);
-        deviceSettings.setMirrorScanLength(scanLengthLateral);
-        dOPM_hostframeLogger.info("set lateral mirror scan length to " + 
-                scanLengthLateral);
+        // double scanLengthLateral = deviceSettings.lateralScanToLabZ(scanLengthZprime);
+        dOPM_hostframeLogger.info("parsing scan length as " + scanLength);
+        deviceSettings.setMirrorScanLength(scanLength);
+        // dOPM_hostframeLogger.info("set lateral mirror scan length to " + 
+        //         scanLengthLateral);
     }//GEN-LAST:event_mirrorScanLengthFieldActionPerformed
 
-    private void pcOfMaxMirrorFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pcOfMaxMirrorFieldActionPerformed
+    private void fracOfMaxMirrorFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fracOfMaxMirrorFieldActionPerformed
         double mirrorSafetyFactor =
-                Double.parseDouble(pcOfMaxMirrorField.getText());
-        deviceSettings.setScanSpeedSafetyFactorMirror(mirrorSafetyFactor);    }//GEN-LAST:event_pcOfMaxMirrorFieldActionPerformed
+                Double.parseDouble(fracOfMaxMirrorField.getText());
+        deviceSettings.setScanSpeedSafetyFactorMirror(mirrorSafetyFactor);    }//GEN-LAST:event_fracOfMaxMirrorFieldActionPerformed
 
-    private void pcOfMaxXyFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pcOfMaxXyFieldActionPerformed
+    private void fracOfMaxXyFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fracOfMaxXyFieldActionPerformed
         double xySafetyFactor =
-        Double.parseDouble(pcOfMaxXyField.getText())/100;
+                Double.parseDouble(fracOfMaxXyField.getText());
         deviceSettings.setScanSpeedSafetyFactorXy(xySafetyFactor);
-    }//GEN-LAST:event_pcOfMaxXyFieldActionPerformed
+    }//GEN-LAST:event_fracOfMaxXyFieldActionPerformed
 
     private void xyMaxSpeedCheckBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_xyMaxSpeedCheckBoxActionPerformed
         if (xyMaxSpeedCheckBox.isSelected()){
@@ -999,12 +1008,13 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         this.saveImgToDisk = saveImgToDisk;
     }
 
-    public File getDefaultConfigFile() {
-        return defaultConfigFile;
+    public String getConfigFilePath() {
+        return configFilePath;
     }
 
-    public void setDefaultConfigFile(File defaultConfigFile) {
-        this.defaultConfigFile = defaultConfigFile;
+    public void setConfigFilePath(String configFilePath) {
+        this.configFilePath = configFilePath;
+        dopmUserProfile.putString("configFilePath", configFilePath);
     }
 
     public boolean isRunnableIsRunning() {
@@ -1024,37 +1034,41 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         this.interruptFlag = interruptFlag;
     } 
     
-    public File getBaseFolderDir() {
+    public String getBaseFolderDir() {
         return baseFolderDir;
     }
 
-    public void setBaseFolderDir(File baseFolderDir) {
+    public void setBaseFolderDir(String baseFolderDir) {
         this.baseFolderDir = baseFolderDir;
-        setSettingsFolderDir(new File(baseFolderDir, "settings"));
-        setDataFolderDir(new File(baseFolderDir, "data"));
+        dopmUserProfile.getString(
+                "baseFolderDir", baseFolderDir);
+        setSettingsFolderDir(
+                new File(baseFolderDir, "settings").getAbsolutePath());
+        setDataFolderDir(new File(baseFolderDir, "data").getAbsolutePath());
+
     }
 
-    public File getSettingsFolderDir() {
+    public String getSettingsFolderDir() {
         return settingsFolderDir;
     }
 
-    public void setSettingsFolderDir(File settingsFolderDir) {
+    public void setSettingsFolderDir(String settingsFolderDir) {
         this.settingsFolderDir = settingsFolderDir;
     }
 
-    public File getDataFolderDir() {
+    public String getDataFolderDir() {
         return dataFolderDir;
     }
 
-    public void setDataFolderDir(File dataFolderDir) {
+    public void setDataFolderDir(String dataFolderDir) {
         this.dataFolderDir = dataFolderDir;
     }
 
-    public DeviceManager getDeviceSettings() {
+    public DeviceSettingsManager getDeviceSettings() {
         return deviceSettings;
     }
 
-    public void setDeviceSettings(DeviceManager deviceSettings) {
+    public void setDeviceSettings(DeviceSettingsManager deviceSettings) {
         this.deviceSettings = deviceSettings;
     }
     
@@ -1100,6 +1114,10 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private javax.swing.JMenuItem clearLogsMenuItem;
     private javax.swing.JTextArea debugTextArea;
     private javax.swing.JPanel fileSettingsPanel;
+    private javax.swing.JTextField fracOfMaxMirrorField;
+    private javax.swing.JLabel fracOfMaxMirrorLabel;
+    private javax.swing.JTextField fracOfMaxXyField;
+    private javax.swing.JLabel fracOfMaxXyLabel;
     private javax.swing.JMenu jMenu1;
     private javax.swing.JMenu jMenu2;
     private javax.swing.JMenuBar jMenuBar1;
@@ -1115,10 +1133,6 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private javax.swing.JPanel mirrorScanSettingsPanel;
     private javax.swing.JTextField mirrorScanSpeedField;
     private javax.swing.JMenuItem openDeviceConfigMenuItem;
-    private javax.swing.JTextField pcOfMaxMirrorField;
-    private javax.swing.JLabel pcOfMaxMirrorLabel;
-    private javax.swing.JTextField pcOfMaxXyField;
-    private javax.swing.JLabel pcOfMaxXyLabel;
     private javax.swing.JTextField saveDirectoryField;
     private javax.swing.JLabel saveDirectoryLabel;
     private javax.swing.JCheckBox saveToDiskCheckBox;

@@ -13,6 +13,7 @@ import java.util.concurrent.TimeoutException;
 import org.micromanager.PropertyMap;
 import org.micromanager.PropertyMaps;
 import org.micromanager.data.Datastore;
+import org.micromanager.data.SummaryMetadata;
 import org.micromanager.display.DisplayWindow;
 
 /**
@@ -110,8 +111,14 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
                     putDouble("trigger distance", triggerDistanceUm).
                     putDouble("scan length", acquiredScanLengthUm).
                         build();
-
-                store = createDatastore(myPropertyMap);
+                // d' in literature, plane spacing in mirror scan
+                double zprimeSpacing = 
+                        deviceSettings.lateralScanToMirrorNormal(triggerDistanceUm);
+                SummaryMetadata metadata = mm_.data().summaryMetadataBuilder().
+                        zStepUm(zprimeSpacing).build();
+                
+                // feed datastore extra metadata info specific to stage scan
+                store = createDatastore(metadata, myPropertyMap);
        
             } catch (IOException ie){
                 throw ie;
@@ -148,8 +155,9 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
             core_.waitForDevice(mirrorStage);  // make sure it is ready to move
             core_.setPosition(mirrorStage, scanEndUm);
         } catch (Exception e){
+            runnableLogger.severe("Failed to move PI stage to end scan position");
             throw new Exception(String.format(
-                    "Failed to move PI stage to %s end scan position %.1f um",
+                    "Failed to move PI stage to end scan position %.1f um",
                     scanEndUm));
         }
         // Acquire volume in the trigger loop
@@ -167,6 +175,13 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
             core_.stopSequenceAcquisition(camName);
             runnableLogger.info(String.format("stopSequenceAcquisition time %.2f ms",
                     System.currentTimeMillis()-acqstopStart));
+                    // Disable triggering, stop sequence
+            try {
+                PIStage.setPITriggerEnable(mirrorStagePort, 0);
+            } catch (Exception e){
+                runnableLogger.severe(String.format("Failed to disable PI triggering "
+                        + "with exception %s", e.getMessage()));
+            }
             // Freeze and close datastore
             if (store != null){
                 double freezeStart = System.currentTimeMillis();
@@ -180,12 +195,5 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
             }
         }
         
-        // Disable triggering, stop sequence
-        try {
-            PIStage.setPITriggerEnable(mirrorStagePort, 0);
-        } catch (Exception e){
-            throw new Exception(String.format("Failed to disable PI triggering "
-                    + "with exception %s", e.getMessage()));
-        }
     }
 }

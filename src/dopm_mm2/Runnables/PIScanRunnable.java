@@ -6,7 +6,7 @@ package dopm_mm2.Runnables;
 
 import dopm_mm2.Devices.PIStage;
 import dopm_mm2.GUI.dOPM_hostframe;
-import dopm_mm2.Devices.DeviceManager;
+import dopm_mm2.Devices.DeviceSettingsManager;
 import dopm_mm2.util.FileMM;
 
 import mmcorej.CMMCore;
@@ -53,7 +53,7 @@ public class PIScanRunnable implements Runnable {
     
     private ScriptController sc;
 
-    private DeviceManager deviceSettings;
+    private DeviceSettingsManager deviceSettings;
     private DisplayWindow display;
     
     private String camName;
@@ -89,9 +89,9 @@ public class PIScanRunnable implements Runnable {
         
         saveImgToDisk = frame_.isSaveImgToDisk();
         
-        settingsOutDir = frame_.getSettingsFolderDir().getAbsolutePath();
-        dataOutDir = frame_.getDataFolderDir().getAbsolutePath();
-        baseDir = frame_.getBaseFolderDir().getAbsolutePath();
+        settingsOutDir = frame_.getSettingsFolderDir();
+        dataOutDir = frame_.getDataFolderDir();
+        baseDir = frame_.getBaseFolderDir();
         
         runnableLogger.info("dataOutDir: " + dataOutDir);
         runnableLogger.info("baseDir: " + baseDir);

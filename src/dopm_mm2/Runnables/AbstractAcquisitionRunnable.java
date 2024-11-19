@@ -4,7 +4,8 @@
  */
 package dopm_mm2.Runnables;
 
-import dopm_mm2.Devices.DeviceManager;
+import dopm_mm2.Devices.DeviceSettingsManager;
+import dopm_mm2.Devices.PIStage;
 import dopm_mm2.Devices.TangoXYStage;
 import dopm_mm2.GUI.dOPM_hostframe;
 import dopm_mm2.util.FileMM;
@@ -31,6 +32,7 @@ import org.micromanager.data.SummaryMetadata;
 
 import dopm_mm2.acquisition.MDAProgressManager;
 import dopm_mm2.util.errorTools;
+import loci.formats.meta.BaseMetadata;
 
 /** Abstract class for dOPM runnables, switching between views and calling 
  * runSingleView for each view.
@@ -45,7 +47,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     protected final dOPM_hostframe frame_;
     protected final CMMCore core_;
     protected final Studio mm_;
-    protected final DeviceManager deviceSettings;
+    protected final DeviceSettingsManager deviceSettings;
     protected final MDAProgressManager currentAcq;
     protected double currentViewAngle;
     
@@ -74,6 +76,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     protected double startingYPositionUm;
     protected double startingZpositionUm;
     protected double startingMirrorPositionUm;
+    protected double zStepUm;
     
     protected double volumeScanLength;
     
@@ -155,6 +158,14 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             }
         }
         
+        try {
+            PIStage.setPITriggerLow(mirrorStagePort);
+        } catch (Exception e){
+            logErrorWithWindow(String.format(
+                    "Failed to set PI trigger to low with error %s",
+                    e.getMessage()));
+        }
+        
         runnableLogger.info(String.format("Runnable setup inside run took %d ms", 
                 System.currentTimeMillis()-start));
         
@@ -172,8 +183,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             try { 
                 currentAcq.setCurrentView(1);
             } catch (Exception e){
-                runnableLogger.severe("Failed to change to view 1, "
-                        + "check config dOPM View exists with preset View 1");
+                runnableLogger.severe("Failed to change to view 1 with " + e.toString()
+                        + " check config dOPM View exists with preset View 1");
                 return;
             }
             // I think hugh would do 0 and 90 instead of -45 and 45, check
@@ -203,7 +214,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             try { 
                 currentAcq.setCurrentView(2);
             } catch (Exception e){
-                runnableLogger.severe("Failed to change to view 2, "
+                runnableLogger.severe("Failed to change to view 2 with " + e.toString()
                         + "check config dOPM View exists with preset View 2");
             }
             currentViewAngle = deviceSettings.getOpmAngle();
@@ -249,13 +260,21 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
 
     
     protected void logErrorWithWindow(Exception e){
-        runnableLogger.severe(e.toString());
-        if (errorWindowsDuringAcq) errorTools.acquisitionErrorWindow(e);
+        String msg = e.toString();
+        logErrorWithWindow(msg);
     }
     
     protected void logErrorWithWindow(String msg){
         runnableLogger.severe(msg);
+        mm_.acquisitions().abortAcquisition();
+        mm_.acquisitions().isAcquisitionRunning();
+        mm_.acquisitions().clearRunnables();
+        
+        // cleanupAcq();
+        // setStagePositionsToStart();
+        
         if (errorWindowsDuringAcq) errorTools.acquisitionErrorWindow(msg);
+        
     }
     
     protected void storeStageStartingPositions() throws Exception{
@@ -273,10 +292,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         }
     }
     
-    // perhaps a little redundant atm
-    protected void cleanupAcq(){
-        long start = System.currentTimeMillis();
-        runnableLogger.info("Cleaning up acquisition, lasers -> off");
+    protected void switchOffLasers(){
+        runnableLogger.info("lasers -> off");
         try {
             core_.setProperty(DAQDOPort, "State", 0);
             core_.setProperty(DAQDOPort, "Blanking", "Off");
@@ -286,7 +303,11 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             runnableLogger.severe(err);
             logErrorWithWindow(err);
         }
-
+    }
+    
+    // perhaps a little redundant atm
+    protected void cleanupAcq(){
+        long start = System.currentTimeMillis();
         try {
             double stopAcqStart = System.currentTimeMillis();
             if (core_.isSequenceRunning()){
@@ -346,19 +367,33 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         core_.setProperty(camName, "TRIGGER SOURCE","INTERNAL");
     }
     
+    protected Datastore createDatastore(PropertyMap customPropertyMap) 
+            throws IOException, Exception {
+        return createDatastore(mm_.data().summaryMetadataBuilder().build(), 
+                customPropertyMap);
+    }
+    
+    protected Datastore createDatastore(SummaryMetadata metadata) 
+            throws IOException, Exception {
+        return createDatastore(metadata, PropertyMaps.builder().build());
+    }
+    
     /** Create datastore for acquisition using the supplied data save path,
      * filename will be MMStack.
      * @param customPropertyMap property map to be created in runSingleView,
      *   use PropertyMaps.builder to build the property map that has e.g. 
-     *   scan length, scan type, trigger distance
+     *   scan length, scan type, trigger distance, optional
+     * @param metadata summary metadata supplied so that e.g. z spacing is 
+     *   saved, optional
      * @return the empty datastore with metadata
      * @throws IOException if datastore creation fails (in FileMM)
      */
-    protected Datastore createDatastore(PropertyMap customPropertyMap) 
-            throws IOException, Exception{
+    protected Datastore createDatastore(SummaryMetadata metadata, 
+            PropertyMap customPropertyMap) throws IOException, Exception{
         double storeStartTime = System.currentTimeMillis();
         Datastore store;
         String stackDirName;
+        boolean useNDTiff = false; // TODO: add ability to change in gui
         
         // get file name based on position in MDA. consider using device 
         // settings to save into filename laser, power, exposure, filter and 
@@ -384,7 +419,9 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         
         try {
             runnableLogger.info("creating datastore in " + dataSavePath);
-            store = FileMM.createDatastore(camName, dataSavePath, true);    
+            // false -- normal ome tiff, true -- new ndtiff
+            store = FileMM.createDatastore(camName, dataSavePath, 
+                    true, useNDTiff);
         } catch (IOException ie){
             throw new IOException("Failed to create datastore with "
                     + ie.getMessage());
@@ -401,9 +438,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             // retrivePositionLabels() <- USE THIS SOON TODO?
             
             runnableLogger.info("Getting more metadata");
-            
-            //test them all.....
-           
+                       
             runnableLogger.info("angle " + currentViewAngle);
             runnableLogger.info("filter " + deviceSettings.getCurrentFilter());
             runnableLogger.info("laser " + deviceSettings.getCurrentLaser());
@@ -422,7 +457,6 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             runnableLogger.info("timeIdx" + currentAcq.getCurrentAcqTimeIdx());
 
 
-            
             myPropertyMap = PropertyMaps.builder().
                 putDouble("angle", currentViewAngle).
                 putString("filter", deviceSettings.getCurrentFilter()).
@@ -445,13 +479,14 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     build();
         } catch (Exception e){
             runnableLogger.severe("Failed to create datastore metadata, falling"
-                            + " back to summary metadata" + e.getMessage());
+                            + " back to default summary metadata" + e.getMessage());
             myPropertyMap = PropertyMaps.builder().build();
         } 
 
-        SummaryMetadata metaData = mm_.data().summaryMetadataBuilder().
+        // copy existing metadata (might well be empty)
+        metadata = metadata.copyBuilder().
                 userData(myPropertyMap).build();
-        store.setSummaryMetadata(metaData);
+        store.setSummaryMetadata(metadata);
         
         double storeCreationTime = System.currentTimeMillis() - storeStartTime;
         runnableLogger.info(String.format("Datastore creation time: %.2f ms", 
@@ -466,12 +501,21 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         double acqTimeStart = System.currentTimeMillis();
     
         // Coords.Builder cb = mm_.data().coordsBuilder().z(0).channel(0).stagePosition(0);
-        Coords.Builder cb = mm_.data().coordsBuilder().z(0);
+        Coords.Builder cb = mm_.data().coordsBuilder().p(0);
 
         boolean grabbed = false;
         int nFrames = 0;
         double frameTimeTotal = 0;
         int frameTimeout = 2000; // if no frame received for 2s, time out
+        
+        // TODO replace with actual numbers
+        double magnification = 20.0*1.406*(200.0/180.0);
+        double pxSizeUm = 6.5/magnification;
+        
+        runnableLogger.info("Pixel size (um) is " + pxSizeUm);
+        
+        Metadata.Builder md = 
+                mm_.data().metadataBuilder().pixelSizeUm(pxSizeUm);
 
         while (nFrames < nFramesTotal && !timeout){
  
@@ -489,7 +533,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                         Image tmp = mm_.data().convertTaggedImage(img);  // Image 
 
                         // does this copy in memory? inefficient?
-                        Image cbImg = tmp.copyAtCoords(cb.z(nFrames).build());
+                        Image cbImg = tmp.copyWith(cb.p(nFrames).build(), 
+                                md.build());
                         store.putImage(cbImg);
                         grabbed = true;
                         nFrames++;
