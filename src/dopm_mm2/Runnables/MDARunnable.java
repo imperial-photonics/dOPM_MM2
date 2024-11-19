@@ -4,6 +4,7 @@
  */
 package dopm_mm2.Runnables;
 
+import dopm_mm2.Devices.DeviceManager;
 import dopm_mm2.GUI.dOPM_hostframe;
 import static dopm_mm2.Runnables.AbstractAcquisitionRunnable.runnableLogger;
 import dopm_mm2.acquisition.MDAProgressManager;
@@ -15,14 +16,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-import javax.swing.JOptionPane;
 // import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import org.micromanager.Studio;
 // import org.micromanager.acqj.main.AcquisitionEvent;
 import org.micromanager.acquisition.AcquisitionManager;
 import org.micromanager.data.Datastore;
-import org.micromanager.data.SummaryMetadata;
 
  // can access acquisition engine here
 // import org.micromanager.internal.MMStudio;  
@@ -37,6 +36,7 @@ public class MDARunnable implements Runnable {
     private final CMMCore core_;
     private final Studio mm_;
     private final dOPM_hostframe frame_;
+    private final DeviceManager deviceSettings;
     private static final Logger mdaRunnableLogger = 
             Logger.getLogger(MDARunnable.class.getName());
     private AcquisitionManager acq_;
@@ -50,9 +50,10 @@ public class MDARunnable implements Runnable {
         this.mm_ = frame_ref.mm_;
         this.frame_ = frame_ref;
         acq_ = mm_.getAcquisitionManager();
-        
+        deviceSettings = frame_.getDeviceSettings();
         
         // get aquisition progress manager--retrieves current index of each dim
+        // maybe move to run()
         try {
             mdaMgr = new MDAProgressManager();
         } catch (Exception e){
@@ -87,7 +88,7 @@ public class MDARunnable implements Runnable {
         }
     }
     
-    private void createLog(String logOutDir){
+    private void createLogFile(String logOutDir){
         try { 
             // Just print log for this runnable for debugging directly
             new File(logOutDir).mkdirs(); 
@@ -121,15 +122,31 @@ public class MDARunnable implements Runnable {
             String saveDirName = String.format("%s_%s", scanTypeLabel, formattedDate);
 
             File dataOutRootDir = frame_.getDataFolderDir();//.getAbsolutePath();
-            File logOutFile = frame_.getDataFolderDir();
-            String logOutDir = logOutFile.getAbsolutePath();
+            // String logOutDir = frame_.getDataFolderDir().getAbsolutePath();
 
             // make the dirs in a timestamped subdir so it doesn't overwrite
             snapRunnable.dataOutDir = new File(
                     dataOutRootDir, saveDirName).getAbsolutePath();
 
-            createLog(logOutDir);
-                        
+            createLogFile(snapRunnable.dataOutDir);  // save mdaRunnableLogger to file
+            
+            // info
+            String mdaInfo =
+                String.format("%d channels", mdaMgr.getnChannelPts()) 
+                    + mdaMgr.getChannelNames() +
+                String.format("%d positions", mdaMgr.getnPositionPts())
+                    + mdaMgr.getPositionLabels() +
+                String.format("%d z slices", mdaMgr.getnZPts())
+                    + mdaMgr.getzSlices() + "(um)" +
+                String.format("%d timepoints", mdaMgr.getnTimePts())
+                    + mdaMgr.getTimepointsMs() + "(ms)" +
+                "View 1? "
+                    + (deviceSettings.isView1Imaged() ? "Yes" : "No") +
+                "View 2? " 
+                    + (deviceSettings.isView2Imaged() ? "Yes" : "No");
+            
+            mdaRunnableLogger.info("Starting dOPM MDA with" + mdaInfo);
+                                                
             try {
                 acq_.clearRunnables();
                 acq_.attachRunnable(-1, -1, -1, -1, snapRunnable);

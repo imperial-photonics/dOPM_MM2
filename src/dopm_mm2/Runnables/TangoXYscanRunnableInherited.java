@@ -189,7 +189,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                 + "[start: %.2f um, frames: %d, end %.2f um]",
                 scanAxis, scanStartUm, nFrames, scanEndUm));
         
-        start_ = System.currentTimeMillis();
+        long startAcq = System.currentTimeMillis();
         try {
             TangoXYStage.setTangoAxisSpeed(XYStage, scanAxis, scanSpeed);
             TangoXYStage.setAxisPosition(XYStage, scanEndUm, scanAxis);
@@ -198,8 +198,6 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                     "Failed to move stage to %s end scan position %.1f um",
                     scanAxis, scanEndUm));
         }
-        runnableLogger.info(String.format("Move to start of scan time %d ms", 
-            System.currentTimeMillis()-start_));
         // Acquire volume in the trigger loop
         try{
             acquireTriggeredDataset(store, scanEndUm, nFrames);

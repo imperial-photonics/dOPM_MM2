@@ -49,9 +49,10 @@ public class MDAProgressManager {
     private final List<MultiStagePosition> multiStagePositions;
     // private final List<Channel> channels;  // custom objs to describe channels
     private final List<ChannelSpec> channelSpecs;
+    private final List<String> channelNames;
     private final List<Double> zSlices;
     private final List<Double> timepointsMs;
-    private List<String> acqPositionLabels;
+    private List<String> positionLabels;
  
     // determined by acqOrderMode
     private final int channelOrder;
@@ -74,18 +75,8 @@ public class MDAProgressManager {
     private int currentMDAAcqIdx;
     private int totalMDAAcqPts;
     
-    private int currentAcqChannelIdx;
-    private int currentAcqPositionIdx;
-    private int currentAcqZIdx;
-    private int currentAcqTimeIdx;
-    
     private int currentView;
-    private Channel channelDetails;
-    private ChannelSpec currentAcqChannel;
-    private MultiStagePosition currentAcqPos;
-    private double currentAcqZ;
-    private double currentAcqTime;
-    private String currentAcqPositionLabel;
+
     
     /** Default constructor without device settings 
      * 
@@ -120,16 +111,19 @@ public class MDAProgressManager {
         zSlices = calculateZSlices();
         List<ChannelSpec> channelSpecsIncludingUnticked = mdaSettings.channels();
         channelSpecs = new ArrayList<>();
+        channelNames = new ArrayList<>();
         timepointsMs = calculateTimepoints();
         multiStagePositions = retrieveMultiStagePositions();
-        acqPositionLabels = retrivePositionLabels();
-        acquisitionManagerLogger.info("position labels: " + acqPositionLabels);
+        positionLabels = retrivePositionLabels();
+        acquisitionManagerLogger.info("position labels: " + positionLabels);
         
+        // only include channels that are currently selected/ticked in MDA
         ChannelSpec chanSpec_;
         for (int n_c=0; n_c<mdaSettings.channels().size(); n_c++){
             chanSpec_ = channelSpecsIncludingUnticked.get(n_c);
             if (chanSpec_.useChannel()){
                 channelSpecs.add(chanSpec_);
+                channelNames.add(chanSpec_.config());
             }
         }
         // int sum = channelSpecs.stream().mapToInt(chanspec -> chanspec.useChannel() ? 1:0 ).sum();
@@ -152,10 +146,6 @@ public class MDAProgressManager {
         
         currentView = 0;
         currentMDAAcqIdx = 0;
-        currentAcqChannelIdx = 0;
-        currentAcqPositionIdx = 0;
-        currentAcqZIdx = 0;
-        currentAcqTimeIdx = 0;
         
         // set Dimension Orders
         
@@ -363,7 +353,7 @@ public class MDAProgressManager {
     }
     
     /** Generate a propertyMap for MDA details such as channel and position 
-     * probably unused... need to think about where to generate metadata: here
+     * for CURRENT position... need to think about where to generate metadata: here
      * or in the abstract class
      * @return
      * @throws Exception 
@@ -429,10 +419,10 @@ public class MDAProgressManager {
      **/
     public void nextAcqPoint() throws IndexOutOfBoundsException{
         if (currentMDAAcqIdx >= totalMDAAcqPts-1){
-            if ((currentAcqChannelIdx != nChannelPts-1) |
-                    (currentAcqPositionIdx != nPositionPts-1) |
-                    (currentAcqZIdx != nZPts-1) |
-                    (currentAcqTimeIdx != nTimePts-1)){
+            if ((getCurrentAcqChannelIdx() != nChannelPts-1) |
+                    (getCurrentAcqPositionIdx() != nPositionPts-1) |
+                    (getCurrentAcqZIdx() != nZPts-1) |
+                    (getCurrentAcqTimeIdx() != nTimePts-1)){
                 String msg = String.format("Attempted to move to"
                         + " next point in MDA when there are no more: "
                         + "MDA point (%d/%d): nT=%d, nP=%d, nZ=%d, nC=%d.", 
@@ -443,10 +433,6 @@ public class MDAProgressManager {
             acquisitionManagerLogger.info("Reached final point in MDA");
         } else {
             nextMDAAcqIndex();
-            updateCurrentAcqChannel();
-            updateCurrentAcqPosition();
-            updateCurrentAcqZ();
-            updateCurrentAcqTime();
         }
     }
 
@@ -454,69 +440,49 @@ public class MDAProgressManager {
         currentMDAAcqIdx += 1;
     }
     
-    // channel getter setters
+    // channel getter setters, dont actually need private variables other than 
+    // currentMDAAcqIdx and the respective lists
 
     public int getCurrentAcqChannelIdx() {
-        return currentAcqChannelIdx;
+        return acqChannelIndices.get(currentMDAAcqIdx);
     }
     
     public ChannelSpec getCurrentAcqChannel() {
-        return currentAcqChannel;
+        return channelSpecs.get(getCurrentAcqChannelIdx());
     }
     
-    public void updateCurrentAcqChannel(){
-        this.currentAcqChannelIdx = acqChannelIndices.get(currentMDAAcqIdx);
-        this.currentAcqChannel = channelSpecs.get(currentAcqChannelIdx);
-    }
-
     // position getter/setters
 
     public int getCurrentAcqPositionIdx() {
-        return currentAcqPositionIdx;
+        return acqPositionIndices.get(currentMDAAcqIdx);
     }
 
     public MultiStagePosition getCurrentAcqPos() {
-        return currentAcqPos;
+        return multiStagePositions.get(getCurrentAcqPositionIdx());
     }
     
     public String getCurrentAcqPositionLabel(){
-        return currentAcqPositionLabel;
-    }
-    
-    public void updateCurrentAcqPosition() throws IndexOutOfBoundsException {
-        this.currentAcqPositionIdx = acqPositionIndices.get(currentMDAAcqIdx);
-        this.currentAcqPos = multiStagePositions.get(currentAcqPositionIdx);
-        this.currentAcqPositionLabel = acqPositionLabels.get(currentAcqPositionIdx);
+        return getCurrentAcqPos().getLabel();
     }
 
     // z slice getter/setters
 
     public int getCurrentAcqZIdx() {
-        return currentAcqZIdx;
+        return acqZIndices.get(currentMDAAcqIdx);
     }
     
     public double getCurrentAcqZ() {
-        return currentAcqZ;
-    }
-
-    public void updateCurrentAcqZ() {
-        this.currentAcqZIdx = acqZIndices.get(currentMDAAcqIdx);
-        this.currentAcqZ = zSlices.get(currentAcqZIdx);
+        return zSlices.get(getCurrentAcqZIdx());
     }
 
     // timepoint slice getter/setters
 
     public int getCurrentAcqTimeIdx() {
-        return currentAcqTimeIdx;
+        return acqTimeIndices.get(currentMDAAcqIdx);
     }
     
     public double getCurrentAcqTime() {
-        return currentAcqTime;
-    }
-    
-    public void updateCurrentAcqTime() {
-        this.currentAcqTimeIdx = acqTimeIndices.get(currentMDAAcqIdx);
-        this.currentAcqTime = timepointsMs.get(currentAcqTimeIdx);
+        return timepointsMs.get(getCurrentAcqTimeIdx());
     }
 
     public int getCurrentView() {
@@ -530,4 +496,40 @@ public class MDAProgressManager {
         core_.waitForConfig("dOPM View", viewString);
         this.currentView = currentView;
     }
+
+    public int getnChannelPts() {
+        return nChannelPts;
+    }
+
+    public int getnPositionPts() {
+        return nPositionPts;
+    }
+
+    public int getnZPts() {
+        return nZPts;
+    }
+
+    public int getnTimePts() {
+        return nTimePts;
+    }
+
+    public List<String> getChannelNames() {
+        return channelNames;
+    }
+
+    public List<Double> getzSlices() {
+        return zSlices;
+    }
+
+    public List<Double> getTimepointsMs() {
+        return timepointsMs;
+    }
+
+    public List<String> getPositionLabels() {
+        return positionLabels;
+    }
+    
+    
+    
+    
 }

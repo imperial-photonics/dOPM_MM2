@@ -818,13 +818,14 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_yScanRadioButtonActionPerformed
 
     private void view2CheckBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_view2CheckBoxActionPerformed
-        if (view1CheckBox.isSelected()){
+        if (view2CheckBox.isSelected()){
             deviceSettings.setView2Imaged(true);
         } else deviceSettings.setView2Imaged(false);
+        
     }//GEN-LAST:event_view2CheckBoxActionPerformed
 
     private void view1CheckBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_view1CheckBoxActionPerformed
-        if (view2CheckBox.isSelected()){
+        if (view1CheckBox.isSelected()){
             deviceSettings.setView1Imaged(true);
         } else deviceSettings.setView1Imaged(false);
     }//GEN-LAST:event_view1CheckBoxActionPerformed
