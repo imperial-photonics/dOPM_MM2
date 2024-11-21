@@ -160,6 +160,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         
         try {
             PIStage.setPITriggerLow(mirrorStagePort);
+            TangoXYStage.setTangoTriggerEnable(XYStagePort, 0);
         } catch (Exception e){
             logErrorWithWindow(String.format(
                     "Failed to set PI trigger to low with error %s",
@@ -494,7 +495,21 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         return store;
     }
     
-    protected Datastore acquireTriggeredDataset(Datastore store, double scanEnd, int nFramesTotal)
+    /**
+     * Loop to grab frames from a camera that is being hardware triggered
+     * @param store
+     * @param nFramesTotal
+     * @return
+     * @throws Exception 
+     */
+    protected Datastore acquireTriggeredDataset(
+            Datastore store, int nFramesTotal) 
+            throws Exception {
+        return acquireTriggeredDataset(store, nFramesTotal, 10000);
+    }
+    
+    protected Datastore acquireTriggeredDataset(
+            Datastore store, int nFramesTotal, int timeOutMs)
             throws Exception {
         // Coords.Builder cb = Coordinates.builder();
         boolean timeout = false;
@@ -506,7 +521,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         boolean grabbed = false;
         int nFrames = 0;
         double frameTimeTotal = 0;
-        int frameTimeout = 2000; // if no frame received for 2s, time out
+        int frameTimeout = timeOutMs; // if no frame received for 10s, time out
         
         // TODO replace with actual numbers
         double magnification = 20.0*1.406*(200.0/180.0);
@@ -547,15 +562,21 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                             "%d FRAMES DROPPED", dropped));
                     timeout = true;  // actually redundant
                     if (nFrames==0){
+                        runnableLogger.severe("No frames acquired");
                         throw new TimeoutException("No frames acquired in triggered "
                             + "acquisition. Check hardware and wiring");
                     } else if (dropped > maxDroppedFrames) {
+                        runnableLogger.severe("Not all frames acquired");
                         String msg = String.format(
                                 "%d frames dropped (maximum allowed=%d) in "
                                 + "triggered acquisition, "
                                 + "check camera speed settings, trigger "
-                                + "distance, exposure, scan speed", 
+                                + "distance, exposure, scan speed. If using "
+                                + "max scan speed, consider reducing the '"
+                                + "fraction of max factor, especially for "
+                                + "higher exposure times", 
                                 dropped, maxDroppedFrames);
+                        
                         throw new TimeoutException(msg);
                     }
                 }

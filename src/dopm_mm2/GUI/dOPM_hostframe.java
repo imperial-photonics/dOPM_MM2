@@ -1040,7 +1040,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
     public void setBaseFolderDir(String baseFolderDir) {
         this.baseFolderDir = baseFolderDir;
-        dopmUserProfile.getString(
+        dopmUserProfile.putString(
                 "baseFolderDir", baseFolderDir);
         setSettingsFolderDir(
                 new File(baseFolderDir, "settings").getAbsolutePath());

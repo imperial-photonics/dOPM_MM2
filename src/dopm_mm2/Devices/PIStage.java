@@ -12,9 +12,9 @@ import dopm_mm2.util.MMStudioInstance;
 /**
  * Device control functions, not static, needs to be instantiated with CMMCore Use the functions in
  * here for hardware control, these are directly called by Runnables (which are in turn called by
- * the host_frame) The list of functions:
- *
- *
+ * the host_frame) 
+ * 
+ * Uses the static class 
  *
  * @author lnr19
  */
@@ -24,10 +24,6 @@ public class PIStage {
     private static final Logger PIStageLogger
             = Logger.getLogger(PIStage.class.getName());
     
-    /** Constructor with CMMCore instance injected, prefer to use empty parameter version now
-     *
-     * @param cmmcore 
-     */
     public PIStage() {
     }
 
@@ -436,7 +432,33 @@ public class PIStage {
         }
         return "";
     }
-    /** Exception that reports an error message from the stage
+    
+    public static String[] viewTriggerSettings(String port){
+        String[] settings = new String[5];
+        CMMCore core = MMStudioInstance.getCore();  // get locally for reuse
+        try {
+            core.setSerialPortCommand(port, "VEL? 1", "\n");
+            settings[0] = "speed," + core.getSerialPortAnswer(port, "\n");
+            PIStageLogger.info(settings[0]);
+            core.setSerialPortCommand(port, "POS? 1", "\n");
+            settings[1] = "position," + core.getSerialPortAnswer(port, "\n");
+            PIStageLogger.info(settings[1]);
+            core.setSerialPortCommand(port, "CTO? 1 8", "\n");
+            settings[2] = "start trigger," + core.getSerialPortAnswer(port, "\n");
+            PIStageLogger.info(settings[2]);
+            core.setSerialPortCommand(port, "CTO? 1 9", "\n");
+            settings[3] = "end trigger," + core.getSerialPortAnswer(port, "\n");
+            PIStageLogger.info(settings[3]);
+            core.setSerialPortCommand(port, "CTO? 1 1", "\n");
+            settings[4] = "trig dist," + core.getSerialPortAnswer(port, "\n");
+            PIStageLogger.info(settings[4]);
+        } catch (Exception e){
+            PIStageLogger.severe("Failed to get trigger settings with " + e.toString());
+        }
+        return settings;
+    }
+    
+    /** Exception that reports an error message from the stage, not really used
      * 
      */
     static class PIControllerErrorException extends Exception

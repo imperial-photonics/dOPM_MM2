@@ -155,16 +155,18 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
             core_.waitForDevice(mirrorStage);  // make sure it is ready to move
             core_.setPosition(mirrorStage, scanEndUm);
         } catch (Exception e){
-            runnableLogger.severe("Failed to move PI stage to end scan position");
+            runnableLogger.severe("Failed to move PI stage to end scan position with " + e.toString());
             throw new Exception(String.format(
-                    "Failed to move PI stage to end scan position %.1f um",
-                    scanEndUm));
+                    "Failed to move PI stage to end scan position %.1f um with",
+                    scanEndUm, e.toString()));
         }
         // Acquire volume in the trigger loop
         // Maybe we can handle all of this in the abstract class instead
         try{
-            acquireTriggeredDataset(store, scanEndUm, nFrames);
+            acquireTriggeredDataset(store, nFrames);
         } catch (TimeoutException e){
+            core_.setSerialPortCommand(mirrorStagePort, "POS? 1", "\n");
+            runnableLogger.info("pos after failing: " + core_.getSerialPortAnswer(mirrorStagePort, "\n"));
             throw e;
         } catch (Exception e2){
             throw new Exception("Unknown error occured in triggered sequence"
@@ -183,15 +185,20 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
                         + "with exception %s", e.getMessage()));
             }
             // Freeze and close datastore
-            if (store != null){
-                double freezeStart = System.currentTimeMillis();
-                store.freeze();
-                // keep open if RAM datastore
-                if(frame_.isSaveImgToDisk()) store.close();
-                runnableLogger.info(String.format("DS freezing time %.2f ms",
-                        System.currentTimeMillis()-freezeStart));
+
+            if (store.getNumImages() != 0){
+                try {
+                    double freezeStart = System.currentTimeMillis();
+                    store.freeze();
+                    if(frame_.isSaveImgToDisk()) store.close();
+                    runnableLogger.info(String.format("DS freezing time %.2f ms",
+                            System.currentTimeMillis()-freezeStart));
+                } catch (IOException eio){
+                    runnableLogger.severe("Couldn't freeze/close datastore");
+                }
             } else {
-                runnableLogger.severe("Can't freeze/close empty datastore");
+                if(frame_.isSaveImgToDisk()) store.close();
+                runnableLogger.severe("Datastore empty");
             }
         }
         

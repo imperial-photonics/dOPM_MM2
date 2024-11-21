@@ -232,15 +232,15 @@ public class TangoXYStage {
     }
     
     public static void setTangoTriggerEnable(
-            String port, String axis, int trigOn) throws Exception {
+            String port, int trigOn) throws Exception {
         // TODO check min incremental motion i
-        String msg = String.format("!trig %s %d", axis, trigOn);
+        String msg = String.format("!trig %d", trigOn);
         String queryMsg = "?trig";
         String expectedValue = String.valueOf(trigOn);
         try {
             setAndCheckSerial(port, msg, queryMsg, expectedValue);
         } catch (Exception e) {
-            tangoXYLogger.severe("Failed to set Tango trigger axis with " + e.getMessage());
+            tangoXYLogger.severe("Failed to set Tango trigger state with " + e.getMessage());
             throw e;
         }
     }

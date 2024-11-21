@@ -140,7 +140,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         }
         
         try {
-            TangoXYStage.setTangoTriggerEnable(XYStagePort, scanAxis, 1);
+            TangoXYStage.setTangoTriggerEnable(XYStagePort, 1);
         } catch (Exception e){
             throw new Exception(String.format("Failed to enable triggering "
                     + "%s axis of tango with exception %s", 
@@ -203,7 +203,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         }
         // Acquire volume in the trigger loop
         try{
-            acquireTriggeredDataset(store, scanEndUm, nFrames);
+            acquireTriggeredDataset(store, nFrames);
         } catch (TimeoutException e){
             throw e;
         } catch (Exception e2){
@@ -217,21 +217,27 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
             core_.stopSequenceAcquisition(camName);
             runnableLogger.info(String.format("stopSequenceAcquisition time %.2f ms",
                     System.currentTimeMillis()-acqstopStart));
-            if (store != null){
-                double freezeStart = System.currentTimeMillis();
-                store.freeze();
-                if(frame_.isSaveImgToDisk()) store.close();
-                runnableLogger.info(String.format("DS freezing time %.2f ms",
-                        System.currentTimeMillis()-freezeStart));
+            
+            if (store.getNumImages() != 0){
+                try {
+                    double freezeStart = System.currentTimeMillis();
+                    store.freeze();
+                    if(frame_.isSaveImgToDisk()) store.close();
+                    runnableLogger.info(String.format("DS freezing time %.2f ms",
+                            System.currentTimeMillis()-freezeStart));
+                } catch (IOException eio){
+                    runnableLogger.severe("Couldn't freeze/close datastore");
+                }
             } else {
-                runnableLogger.severe("Can't freeze/close empty datastore");
+                if(frame_.isSaveImgToDisk()) store.close();
+                runnableLogger.severe("Datastore empty");
             }
         }
         
         // Disable triggering, stop sequence
         start_ = System.currentTimeMillis();
         try {
-            TangoXYStage.setTangoTriggerEnable(XYStagePort, scanAxis, 0);
+            TangoXYStage.setTangoTriggerEnable(XYStagePort, 0);
             runnableLogger.info("Tango Error? " + 
                     TangoXYStage.getTangoErrorMsg(XYStagePort));
 
