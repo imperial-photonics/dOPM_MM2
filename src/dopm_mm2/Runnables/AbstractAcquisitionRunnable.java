@@ -31,7 +31,7 @@ import org.micromanager.data.Metadata;
 import org.micromanager.data.SummaryMetadata;
 
 import dopm_mm2.acquisition.MDAProgressManager;
-import dopm_mm2.util.errorTools;
+import dopm_mm2.util.dialogBoxes;
 import loci.formats.meta.BaseMetadata;
 
 /** Abstract class for dOPM runnables, switching between views and calling 
@@ -101,7 +101,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         maxDroppedFrames = 0;
         
         // device variables
-        camName = deviceSettings.getLeftCameraName();
+        camName = deviceSettings.getdOPMCameraName();
         mirrorStage = deviceSettings.getMirrorStageName();
         XYStage = deviceSettings.getXyStageName();
         ZStage = deviceSettings.getZStageName();
@@ -274,7 +274,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         // cleanupAcq();
         // setStagePositionsToStart();
         
-        if (errorWindowsDuringAcq) errorTools.acquisitionErrorWindow(msg);
+        if (errorWindowsDuringAcq) dialogBoxes.acquisitionErrorWindow(msg);
         
     }
     
@@ -435,8 +435,6 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         try {
             // Get my MDAProgressManager metadata
             // possibly redudant, this was just used to save file
-
-            // retrivePositionLabels() <- USE THIS SOON TODO?
             
             runnableLogger.info("Getting more metadata");
                        

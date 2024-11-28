@@ -10,7 +10,7 @@ import dopm_mm2.Devices.TangoXYStage;
 import dopm_mm2.GUI.dOPM_hostframe;
 import static dopm_mm2.Runnables.AbstractAcquisitionRunnable.runnableLogger;
 import dopm_mm2.acquisition.MDAProgressManager;
-import dopm_mm2.util.errorTools;
+import dopm_mm2.util.dialogBoxes;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -63,7 +63,7 @@ public class MDARunnable implements Runnable {
                     + "dOPM MDA acqusition manager (used to find "
                     + "acquisition indices): " + e.getMessage();
             mdaRunnableLogger.severe(err);
-            errorTools.acquisitionErrorWindow(err);
+            dialogBoxes.acquisitionErrorWindow(err);
         }
         
         // do something like this? to get the position index
@@ -167,6 +167,8 @@ public class MDARunnable implements Runnable {
                 acq_.clearRunnables();  // remove runnable
 
                 core_.setProperty(deviceSettings.getLaserBlankingDOport(), "Blanking", "On");
+                
+                dialogBoxes.acquisitionComplete();
 
             } catch (Exception e){  // look into using micromanager exceptions
                 mdaRunnableLogger.severe("Failed in volume acquisition:" + 

@@ -102,7 +102,7 @@ public class PIScanRunnable implements Runnable {
                 
         sc = mm_.getScriptController();
         
-        camName = deviceSettings.getLeftCameraName();
+        camName = deviceSettings.getdOPMCameraName();
         mirrorStage = deviceSettings.getMirrorStageName();
         XYStage = deviceSettings.getXyStageName();
         ZStage = deviceSettings.getZStageName();

@@ -19,7 +19,8 @@ import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import mmcorej.StrVector;
 import dopm_mm2.util.MMStudioInstance;
-import java.util.logging.Level;
+import mmcorej.Configuration;
+import mmcorej.PropertySetting;
 import org.micromanager.Studio;
 import org.micromanager.acquisition.AcquisitionManager;
 import org.micromanager.acquisition.ChannelSpec;
@@ -46,7 +47,7 @@ public class DeviceSettingsManager {
     // private String XYStageDeviceName;
     // private String ZStageDeviceName;
     // private String MirrorStageDeviceName;
-    private String leftCameraName;
+    private String dOPMCameraName;
     private StrVector deviceList;
 
     // Device settings, states, etc.
@@ -145,7 +146,7 @@ public class DeviceSettingsManager {
         
         filterDeviceName = "";
 
-        leftCameraName = "";
+        dOPMCameraName = "";
         deviceList = null;
 
         // Device settings, states, etc.
@@ -170,11 +171,11 @@ public class DeviceSettingsManager {
         xyStageScanAxis = "y";  // "x" or "y"
         useMaxScanSpeedForXyStage = false;
         
-        xyStageName = ""; 
+        xyStageName = core_.getXYStageDevice(); 
         xyStageTravelSpeed = 10.0;
         xyStageCurrentScanSpeed = 0.01;
         xyStageGlobalScanSpeed = 0.01;  // the scan speed used for all channels if useMaxScanSpeed not true
-        xyStageComPort = "COM7";
+        xyStageComPort = getPortProperty(xyStageName);
 
         mirrorStageName = "";
         mirrorStageTravelSpeed = 10.0;
@@ -182,7 +183,7 @@ public class DeviceSettingsManager {
         mirrorStageGlobalScanSpeed = 0.01;  // the scan speed used for all channels if useMaxScanSpeed not true
         mirrorStageComPort = "COM3";
 
-        zStageName = "";
+        zStageName = core_.getFocusDevice();
         zStageTravelSpeed = 10.0;
         zStageComPort = "";
         
@@ -233,52 +234,68 @@ public class DeviceSettingsManager {
         try (BufferedReader br = new BufferedReader(
                 new FileReader(new File(configDetailsCsv)))) {
 
-            List<List<String>> configData = new ArrayList<>();
             String line;
             
+            Map<String, List<String>> deviceDetailsMap = new HashMap<>(); 
+            // Map<String, double> systemConstants = new HashMap<>();
+            
             while ((line = br.readLine()) != null) {
+                // remove all whitespaces
+                line = line.replaceAll("\\s+", "");
+                // Skip comment and empty lines
+                if (line.startsWith("//") || line.trim().isEmpty()) {
+                    continue;
+                }
+                // Find the index of the comment start (//)
+                int commentIndex = line.indexOf("//");
+
+                // If there is no comment, return the line as is
+                if (commentIndex != -1) {
+                    line = line.substring(0, commentIndex).trim(); // Remove comment part
+                }
+                
                 String[] values = line.split(",");
                 deviceManagerLogger.info("Reading out from CSV " + values[0]);
-                configData.add(new ArrayList(Arrays.asList(values)));
+                
+                // hashmap approach to replace messy araylist approach
+                if (values.length > 1){
+                    deviceDetailsMap.put(values[0], Arrays.asList(
+                            Arrays.copyOfRange(values, 1, values.length)));
+                } else{
+                    deviceDetailsMap.put(values[0], 
+                            Arrays.asList(new String[]{""}));
+                }
+                deviceManagerLogger.info("Value: " + deviceDetailsMap.get(values[0]));
             }
+            deviceManagerLogger.info("Map: " + deviceDetailsMap.toString());
+            // device names, ports, etc.
+            deviceDetailsMap.get("test");
+            setdOPMCameraName(
+                    deviceDetailsMap.get("camera_dopm"));
+            setLaserLabels(deviceDetailsMap.get("laser_labels"));
+            setLaserBlankingDOport(
+                    deviceDetailsMap.get("laser_daq_do_port"));
+            setLaserBlankingDOLines(
+                    deviceDetailsMap.get("laser_daq_blanking_lines"));
+            setLaserPowerAOports(
+                    deviceDetailsMap.get("laser_daq_ao_port"));
+            setFilterDeviceName(deviceDetailsMap.get("filter"));
+            setXyStageName(deviceDetailsMap.get("xy_stage"));
+            setZStageName(deviceDetailsMap.get("z_stage"));
+            setMirrorStageName(deviceDetailsMap.get("mirror_stage"));
+            setXyStageComPort(deviceDetailsMap.get("xy_stage_com_port"));
+            setMirrorStageComPort(
+                    deviceDetailsMap.get("mirror_stage_com_port"));
+            setZStageComPort(deviceDetailsMap.get("z_stage_com_port"));
             
-            // see parseList method below this method   
-            // first column is the label (so use get(1), and that sublist
-            
-            /* deviceManagerLogger.info("getting laser dev");
-            List<String> lasersLine = parseList(configData.get(0)); */
-            
-            List<String> laserLabs = parseList(configData.get(1));
-            String laserDOPort = (parseList(configData.get(2))).get(0);
-            List<String> laserDOLines = parseList(configData.get(3));
-            List<String> laserAOports = parseList(configData.get(4));
-            String filter = (parseList(configData.get(7))).get(0);
-            String XYStage = (parseList(configData.get(8))).get(0);
-            String ZStage = (parseList(configData.get(9))).get(0);
-            String mirrorStage = (parseList(configData.get(10))).get(0);
-            String XYStageCOM = (parseList(configData.get(11))).get(0);
-            String ZStageCOM = (parseList(configData.get(12))).get(0);
-            String mirrorStageCOM = (parseList(configData.get(13))).get(0);
-            double RI = Double.parseDouble(
-                    (parseList(configData.get(14))).get(0));
-            double angle = Double.parseDouble(
-                    (parseList(configData.get(15))).get(0));
-            
-            setLeftCameraName(core_.getCameraDevice());
-            setLaserLabels(laserLabs);
-            setLaserBlankingDOport(laserDOPort);
-            setLaserBlankingDOLines(laserDOLines);
-            setLaserPowerAOports(laserAOports);
-            setFilterDeviceName(filter);
-            setXyStageName(XYStage);
-            setZStageName(ZStage);
-            setMirrorStageName(mirrorStage);
-            setXyStageComPort(XYStageCOM);
-            setMirrorStageComPort(mirrorStageCOM);
-            setZStageComPort(ZStageCOM);
-            setImmersionRI(RI);
-            setOpmAngle(angle);
-            
+            // scope values/constants
+            setImmersionRI(Double.parseDouble(
+                    deviceDetailsMap.get("refractive_index").get(0)));
+            setOpmAngle(Double.parseDouble(
+                    deviceDetailsMap.get("opm_angle").get(0)));
+            setMagnification(Double.parseDouble(
+                    deviceDetailsMap.get("magnification").get(0)));
+
             deviceManagerLogger.info("Set devices with setters");
 
         } catch (FileNotFoundException ex) {
@@ -292,34 +309,29 @@ public class DeviceSettingsManager {
                     String.format("Failed to load file at %s",configDetailsCsv),
                     "File not found",JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex){
-            deviceManagerLogger.warning(ex.getMessage());
+            deviceManagerLogger.warning(ex.toString());
             JOptionPane.showMessageDialog(null,
                     "Failed to get device names, check if devices are loaded in "
-                            + "MicroManager and is correct. Error: " + ex.getMessage(),
+                            + "MicroManager and is correct. Error: " + ex.toString(),
                     "File not found", JOptionPane.ERROR_MESSAGE);
         }
     }
-    private List<String> parseList(List<String> row){
-        deviceManagerLogger.info("Line read from device config: " + row);
-        if(row.size()==1){  // size 1 indicates the column label only
-            row.add("");  // add on the value 
-        }
-        row = row.subList(1,row.size());
-        for (int r_i=0; r_i<row.size(); r_i++){
-            row.set(r_i, row.get(r_i).replaceAll("\\s+",""));
-        }
-        
-        deviceManagerLogger.info("Devices in config: " + row);
-        return row;
-    }
     
     private boolean checkInDeviceList(String deviceName){
+        if (deviceName == null){
+            deviceManagerLogger.warning("device name is null");
+            return false;
+        }
         List<String> deviceNames = new ArrayList<>(Arrays.asList(deviceName));
         return checkInDeviceList(deviceNames);
     } 
     
     /** take a list because there are multiple lasers for example */
     private boolean checkInDeviceList(List<String> deviceNames){
+        if (deviceNames == null){
+            deviceManagerLogger.warning("device names is null");
+            return false;
+        }
         ArrayList<String> allDevices = 
                 new ArrayList<>(Arrays.asList(getDeviceList().toArray()));
         for(int n=0; n<deviceNames.size(); n++){
@@ -338,7 +350,11 @@ public class DeviceSettingsManager {
         return true;
     }
     
-    
+    /**
+     * from the DAQ blanking state work out binary and therefore which laser 
+     * is on (only valid for one laser at a time)
+     * @return index of current laser (0-4)
+     */
     public int getCurrentLaserIdx(){
         deviceManagerLogger.info("Getting laserIdx" );
         int laserIdx = 0;
@@ -356,6 +372,10 @@ public class DeviceSettingsManager {
         return laserIdx;
     }
 
+    /**
+     * Get current laser label according to laserLabels (defined in the cfg)
+     * @return current laser's label
+     */
     public String getCurrentLaser(){
         String laser = "";
         List<String> lasers = new ArrayList<>();
@@ -399,29 +419,16 @@ public class DeviceSettingsManager {
     }
     
     public double getCurrentLaserPower(){
-        String device = getCurrentLaser();
+        String laser = getCurrentLaser();
         double power = 0;
-        int currentLaserIdx = getCurrentLaserIdx();
-        if (laserDeviceNames.isEmpty()){
-            deviceManagerLogger.warning("EMPTY laserDeviceNames, "
-                    + "laser powers being controlled by DAQ AO?");
-            try {
-                String aoPort = getLaserPowerAOports().get(currentLaserIdx);
-                // NB: 0 V to 5 V, not 0% to 100%;
-                power = Double.parseDouble(core_.getProperty(aoPort, "Voltage"));
-            } catch (Exception e){
-                deviceManagerLogger.severe("Failed getting DAQ analogue "
-                        + "laser device power: " + e.toString());
-            }
-        } else {
-            try {
-                power = Double.parseDouble(
-                        core_.getProperty(device, "Power SetPoint"));
-
-            } catch (Exception e) {
-                deviceManagerLogger.severe("Failed getting USB "
-                        + "laser device power: " + e.toString());
-            }
+        String powerGroupString = String.format("%s power", laser);
+        try{
+            Configuration cfg = core_.getConfigGroupState(powerGroupString);
+            PropertySetting setting = cfg.getSetting(0);
+            power = Double.parseDouble(setting.getPropertyValue());
+        } catch (Exception e){
+            deviceManagerLogger.severe(String.format(
+                    "Couldn't get \"%s\"'s power (%s)", laser, e.getMessage()));
         }
         return power;
     }
@@ -777,7 +784,13 @@ public class DeviceSettingsManager {
     public String getXyStageName() {
         return xyStageName;
     }
-
+    
+    public void setXyStageName(List<String> xyStageName) {
+        if (xyStageName != null){
+            setXyStageName(xyStageName.get(0));
+        }
+    }
+    
     public void setXyStageName(String xyStageName) {
         if (!xyStageName.equals("")) {
             this.xyStageName = xyStageName;
@@ -820,7 +833,13 @@ public class DeviceSettingsManager {
     public String getXyStageComPort() {
         return xyStageComPort;
     }
-
+    
+    public void setXyStageComPort(List<String> xyStageComPort) {
+        if (xyStageComPort != null){
+            setXyStageComPort(xyStageComPort.get(0));
+        }
+    }
+    
     public void setXyStageComPort(String xyStageComPort) {
         if (!xyStageComPort.equals("")) this.xyStageComPort = xyStageComPort;
     }
@@ -836,9 +855,16 @@ public class DeviceSettingsManager {
     public String getMirrorStageName() {
         return mirrorStageName;
     }
-
+    
+    public void setMirrorStageName(List<String> mirrorStageName) {
+        deviceManagerLogger.info("mirrostagename " + mirrorStageName);
+        if (mirrorStageName != null){
+            setMirrorStageName(mirrorStageName.get(0));
+        }
+    }
+    
     public void setMirrorStageName(String mirrorStageName) {
-        if (!mirrorStageName.equals("")){
+        if (mirrorStageName != null){
             this.mirrorStageName = mirrorStageName;
             deviceManagerLogger.info("Set mirror stage device name to " 
                     + mirrorStageName);
@@ -885,7 +911,13 @@ public class DeviceSettingsManager {
     public String getMirrorStageComPort() {
         return mirrorStageComPort;
     }
-
+    
+    public void setMirrorStageComPort(List<String> mirrorStageComPort) {
+        if (mirrorStageComPort != null){
+            setMirrorStageComPort(mirrorStageComPort.get(0));
+        }
+    }
+    
     public void setMirrorStageComPort(String mirrorStageComPort) {
         if (!mirrorStageComPort.equals("")) this.mirrorStageComPort = mirrorStageComPort;
     }
@@ -910,6 +942,12 @@ public class DeviceSettingsManager {
         return opmAngle;
     }
 
+    public void setOpmAngle(List<Double> opmAngle){
+        if (opmAngle != null){
+            setOpmAngle(opmAngle.get(0));
+        }
+    }
+    
     public void setOpmAngle(double opmAngle) {
         this.opmAngle = opmAngle;
     }
@@ -917,11 +955,30 @@ public class DeviceSettingsManager {
     public double getImmersionRI() {
         return immersionRI;
     }
-
+    
+    public void setImmersionRI(List<Double> immersionRI){
+        if (immersionRI != null){
+            setImmersionRI(immersionRI.get(0));
+        }
+    }
+    
     public void setImmersionRI(double immersionRI) {
         this.immersionRI = immersionRI;
     }
 
+    public double getMagnification() {
+        return magnification;
+    }
+
+    public void setMagnification(List<Double> magnification){
+        if (magnification != null){
+            setMagnification(magnification.get(0));
+        }
+    }
+    
+    public void setMagnification(double magnification) {
+        this.magnification = magnification;
+    }
 
     public boolean isSaveAcquisitionLogs() {
         return saveAcquisitionLogs;
@@ -936,6 +993,12 @@ public class DeviceSettingsManager {
         return zStageName;
     }
 
+    public void setZStageName(List<String> zStageName){
+        if (zStageName != null){
+            setZStageName(zStageName.get(0));
+        }
+    }
+    
     public void setZStageName(String zStageName) {
         if (!zStageName.equals("")){
             this.zStageName = zStageName;
@@ -959,6 +1022,10 @@ public class DeviceSettingsManager {
         return zStageComPort;
     }
 
+    public void setZStageComPort(List<String> zStageComPort) {
+        if (zStageComPort != null) setZStageComPort(zStageComPort.get(0));
+    }
+    
     public void setZStageComPort(String zStageComPort) {
         if (!zStageComPort.equals("")) this.zStageComPort = zStageComPort;
     }
@@ -1000,7 +1067,9 @@ public class DeviceSettingsManager {
     }
     
     public void setLaserDeviceNames(List<String> laserDeviceNames) { 
-        if (checkInDeviceList(laserDeviceNames)){
+        if (laserDeviceNames == null){
+            deviceManagerLogger.warning("Laser device names is null");
+        } else if (checkInDeviceList(laserDeviceNames)){
             this.laserDeviceNames = laserDeviceNames;
             deviceManagerLogger.info("Laser set to" + laserDeviceNames);
         }
@@ -1011,7 +1080,9 @@ public class DeviceSettingsManager {
     }
 
     public void setLaserBlankingDOLines(List<String> laserBlankingDOLines) throws Exception{
-        if (checkInDeviceList(getLaserBlankingDOport())){
+        if (laserBlankingDOLines == null){
+            deviceManagerLogger.warning("Laser blanking lines is null");
+        } else if (checkInDeviceList(getLaserBlankingDOport())){
             for (int n=0; n<laserBlankingDOLines.size(); n++){
                 boolean isProp;
                 isProp = core_.hasProperty(getLaserBlankingDOport(), laserBlankingDOLines.get(n));
@@ -1028,8 +1099,17 @@ public class DeviceSettingsManager {
         return laserBlankingDOport;
     }
 
+    public void setLaserBlankingDOport(List<String> laserBlankingDOport) {
+        if (laserBlankingDOport != null){
+            setLaserBlankingDOport(laserBlankingDOport.get(0));
+        }
+    }
+    
     public void setLaserBlankingDOport(String laserBlankingDOport) {
-        this.laserBlankingDOport = laserBlankingDOport;
+        if (checkInDeviceList(laserBlankingDOport)){
+            this.laserBlankingDOport = laserBlankingDOport;
+            deviceManagerLogger.info("set daq blanking port to " + laserBlankingDOport);
+        }
     }
 
     public List<String> getLaserPowerAOports() {
@@ -1037,13 +1117,24 @@ public class DeviceSettingsManager {
     }
 
     public void setLaserPowerAOports(List<String> laserPowerAOports) {
-        this.laserPowerAOports = laserPowerAOports;
+        if ( laserPowerAOports == null){
+            deviceManagerLogger.warning("Laser AO ports is null");
+        } else if (checkInDeviceList(laserPowerAOports)){
+            this.laserPowerAOports = laserPowerAOports;
+            deviceManagerLogger.info("set daq laser ao ports " + laserPowerAOports);
+        }
     }
 
     public String getFilterDeviceName() {
         return filterDeviceName;
     }
 
+    public void setFilterDeviceName(List<String> filterDeviceName) {
+        if (filterDeviceName != null){
+            setFilterDeviceName(filterDeviceName.get(0));
+        }
+    }
+    
     public void setFilterDeviceName(String filterDeviceName) {
         if (checkInDeviceList(filterDeviceName)){
             this.filterDeviceName = filterDeviceName;
@@ -1052,14 +1143,20 @@ public class DeviceSettingsManager {
         }
     }
 
-    public String getLeftCameraName() {
-        return leftCameraName;
+    public String getdOPMCameraName() {
+        return dOPMCameraName;
     }
 
-    public void setLeftCameraName(String leftCameraName) {
-        if (checkInDeviceList(leftCameraName)){
-            this.leftCameraName = leftCameraName;
-            deviceManagerLogger.info("Camera set to" + leftCameraName);
+    public void setdOPMCameraName(List<String> dOPMCameraName) {
+        if (dOPMCameraName != null){
+            setdOPMCameraName(dOPMCameraName.get(0));
+        }
+    }
+    
+    public void setdOPMCameraName(String dOPMCameraName) {
+        if (checkInDeviceList(dOPMCameraName)){
+            this.dOPMCameraName = dOPMCameraName;
+            deviceManagerLogger.info("Camera set to" + dOPMCameraName);
         }
     }
     
@@ -1091,7 +1188,7 @@ public class DeviceSettingsManager {
     }
     
     // struct-like pattern for laser devices 
-    // controlled by USB
+    // controlled by USB. probably never will use this TO REMOVE
     public class USBLaserDevice{
         private String name;
         private String wavelength;
