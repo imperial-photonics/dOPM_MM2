@@ -34,7 +34,7 @@ public class TangoXYStage {
             throw new Exception(e);
         }   
     }
-    
+        
     /** Initialize things like dim (set API units to um)
      * 
      * @param port 
@@ -86,11 +86,17 @@ public class TangoXYStage {
         }
     }
     
+    
     private static void customWaitForStage(String device) throws Exception{
+        String port = MMStudioInstance.getCore().getProperty(device, "Port");
+        customWaitForPort(port);
+    }
+    
+    /**Ideally faster than waitForDevice()*/
+    private static void customWaitForPort(String port) throws Exception{
         long timeout = 10000;
         int intvlMs = 10;
         int waitedMs = 0;
-        String port = MMStudioInstance.getCore().getProperty(device, "Port");
         MMStudioInstance.getCore().setSerialPortCommand(port, "?statusaxis", "\r");
         String ans = MMStudioInstance.getCore().getSerialPortAnswer(port, "\r");
         while(!ans.equals("JJ--.-") && waitedMs < timeout){
@@ -262,6 +268,11 @@ public class TangoXYStage {
         MMStudioInstance.getCore().setSerialPortCommand(
                 port, "?trigd " + axis, "\r");
         // in mm
+        
+        // SOMETIMES FAILS HERE, ive seen it get the x-y position, 
+        // perhaps I should wait for device it might still be moving and 
+        // querying the stage position
+        customWaitForPort(port);
         double triggerDist = Double.parseDouble(MMStudioInstance.getCore().
                 getSerialPortAnswer(port, "\r"));
         tangoXYLogger.info("got trigger distance as " + triggerDist);
@@ -274,7 +285,7 @@ public class TangoXYStage {
         return actualTriggerRange;
     }
     
-    /** Works by calculating N number of triggers to fit in the desired 
+    /** [RECOMMENDED] Works by calculating N number of triggers to fit in the desired 
      * trigger range and calculates the actual range resulting from N 
      * triggers separated by triggerDist. Is always less than or equal to
      * desiredTriggerRange.
@@ -302,49 +313,7 @@ public class TangoXYStage {
         return new double[]{startTrigger, endTrigger};
     }
 
-    // TODO make setAndCheckSerial serial smarter, take property, value pairs
-        
-    
-    
-    
-    /** sets a string value with tango ASCII e.g., trigd x 0.1. 
-     * @param port COM port
-     * @param msg serial command used to set value
-     * @param queryMsg serial command used to check value
-     * @param expectedValue value (string) that is trying to be set
-     * @throws TimeoutException if fails to set the value after 5 retries
-     **/
-    /* 
-    public static void setAndCheckSerial(
-            String port, String msg, String queryMsg, String expectedValue)
-            throws TimeoutException, IllegalStateException {
-        setAndCheckSerial_(port, msg, queryMsg, expectedValue);
-        
-    }
-    */
-    /*
-    public static void setAndCheckSerial(
-        String port, String msg, String queryMsg, int expectedValue)
-        throws TimeoutException, IllegalStateException {
-        setAndCheckSerial_(port, msg, queryMsg, Double.valueOf(expectedValue));
-    }
-    */
-    
-    /** sets a double value with tango ASCII e.g., triga x. 
-     * @param port COM port
-     * @param msg serial command used to set value
-     * @param queryMsg serial command used to check value
-     * @param expectedValue value (double) that is trying to be set
-     * @throws TimeoutException if fails to set the value after 5 retries
-     **/
-    /*
-    public static void setAndCheckSerial(
-        String port, String msg, String queryMsg, Double expectedValue)
-        throws TimeoutException, IllegalStateException {
-        setAndCheckSerial_(port, msg, queryMsg, expectedValue);
-    }
-    
-    */
+    // TODO make getAndCheckSerial
     
     /** sets a double value with tango ASCII e.g., triga x. 
      * @param port COM port
@@ -405,6 +374,7 @@ public class TangoXYStage {
                         expectedValueStr, answer));
                     }
             } catch (Exception e) {
+                tangoXYLogger.warning("Tango serial command failed: " + e.toString());
                 if (i > maxRetry) {
                     throw new TimeoutException(String.format("Failed to set %s after %d "
                             + "tries with exception %s", msg, maxRetry, e.getMessage()));

@@ -29,12 +29,19 @@ public class FileMM {
 
     public static Datastore createDatastore(String camName, String saveDir, 
             boolean overwrite) throws IOException{
-        return createDatastore(camName, saveDir, overwrite, true);
+        return createDatastore(camName, saveDir, overwrite, 
+                false, true);
+    }
+    
+    public static Datastore createDatastore(String camName, String saveDir, 
+            boolean overwrite, boolean separateMetadata) throws IOException{
+        return createDatastore(camName, saveDir, overwrite, separateMetadata, true);
     }
             
     public static Datastore createDatastore(
             String camName, String saveDir, 
-            boolean overwrite, boolean useNDtiff) throws IOException{
+            boolean overwrite, boolean separateMetadata,
+            boolean useNDtiff) throws IOException{
 	// just CAN NOT delete the directory in java for some reason
 	// so have to do a terrible alternative
 	Datastore img_ds;
@@ -77,7 +84,8 @@ public class FileMM {
             if (useNDtiff){
                 img_ds = mm_.data().createNDTIFFDatastore(fullDir);
             } else {
-                img_ds = mm_.data().createMultipageTIFFDatastore(fullDir, false, false);
+                img_ds = mm_.data().createMultipageTIFFDatastore(
+                        fullDir, separateMetadata, false);
             }
             
 		

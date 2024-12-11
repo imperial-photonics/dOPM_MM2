@@ -134,17 +134,9 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         
         long start = System.currentTimeMillis();           
         
-        // Make camera fast -- todo remove?
-        try {
-            core_.setProperty(camName, "ScanMode", 3);
-        } catch (Exception e){
-            runnableLogger.severe("Failed to set camera scanmode to fast: " 
-                    + e.getMessage());
-        }
-        
         // Set scan speed variables accordingly for mirror and xystage
         deviceSettings.updateCurrentScanSpeedsDuringAcq();
-        
+                
         // Enable external triggering if applicable, 
         // maybe move this for readability?
         if (deviceSettings.getTriggerMode() != 2){
@@ -157,7 +149,6 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     e.getMessage()));
             }
         }
-        
         try {
             PIStage.setPITriggerLow(mirrorStagePort);
             TangoXYStage.setTangoTriggerEnable(XYStagePort, 0);
@@ -175,6 +166,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         // ------- Do view 1 or view 2 (or both), calls runSingleView ------ //
         // // // // // // // // // // // // // // // // // // // // // // // // 
         
+        boolean acqSuccess = false;  // use for retries, for future use TODO
+
         // View 1
         long view1start = System.currentTimeMillis();
         if (deviceSettings.isView1Imaged()){
@@ -368,12 +361,30 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         core_.setProperty(camName, "TRIGGER SOURCE","INTERNAL");
     }
     
+    
+    // TODO overall the createDatastores to only receive propertyMap and just
+    // parse the fields of that. e.g. propertyMap contains zStepUm and gets 
+    // read into the summaryMetadata
+    /**
+     * Empty summaryMetadata, but supply custom PropertyMap
+     * @param customPropertyMap propertyMap that gets built into summary metadata
+     * @return empty datastore
+     * @throws IOException
+     * @throws Exception 
+     */
     protected Datastore createDatastore(PropertyMap customPropertyMap) 
             throws IOException, Exception {
         return createDatastore(mm_.data().summaryMetadataBuilder().build(), 
                 customPropertyMap);
     }
     
+    /**
+     * Empty property map, but supply summary metadata *
+     * @param metadata summary metadata to put in datastore
+     * @return empty datastore with summary metadata
+     * @throws IOException
+     * @throws Exception 
+     */
     protected Datastore createDatastore(SummaryMetadata metadata) 
             throws IOException, Exception {
         return createDatastore(metadata, PropertyMaps.builder().build());
@@ -395,6 +406,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         Datastore store;
         String stackDirName;
         boolean useNDTiff = false; // TODO: add ability to change in gui
+        boolean separateMetadata = true;
         
         // get file name based on position in MDA. consider using device 
         // settings to save into filename laser, power, exposure, filter and 
@@ -422,7 +434,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             runnableLogger.info("creating datastore in " + dataSavePath);
             // false -- normal ome tiff, true -- new ndtiff
             store = FileMM.createDatastore(camName, dataSavePath, 
-                    true, useNDTiff);
+                    true, separateMetadata, useNDTiff);
         } catch (IOException ie){
             throw new IOException("Failed to create datastore with "
                     + ie.getMessage());

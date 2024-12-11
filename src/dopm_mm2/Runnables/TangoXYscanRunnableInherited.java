@@ -113,7 +113,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
             // set triggers and gets end point of trigger range
             actualTriggerScanEndUm = 
                    TangoXYStage.setTangoTriggerRange(
-                    XYStagePort, scanAxis, triggerRangeUm)[1];
+                    XYStagePort, scanAxis, triggerRangeUm, triggerDistanceUm)[1];
             actualTriggerScanEndMillim = actualTriggerScanEndUm*1e-3;
         } catch (Exception e){
             throw new Exception(String.format("Failed to set Tango %s "
