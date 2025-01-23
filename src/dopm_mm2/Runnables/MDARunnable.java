@@ -90,6 +90,11 @@ public class MDARunnable implements Runnable {
         }
     }
     
+    /**
+     * create log file for (custom) MDA. TODO: return handler and close if 
+     * exception raised to avoid .lck files.
+     * @param logOutDir 
+     */
     private void createLogFile(String logOutDir){
         try { 
             // Just print log for this runnable for debugging directly
@@ -168,6 +173,12 @@ public class MDARunnable implements Runnable {
 
                 core_.setProperty(deviceSettings.getLaserBlankingDOport(), "Blanking", "On");
                 
+                /* TODO: implement 
+                if (snapRunnable.acquisitionFailed){
+                    dialogBoxes.acquisitionErrorWindow(e);
+                } else {
+                    dialogBoxes.acquisitionComplete();
+                } */
                 dialogBoxes.acquisitionComplete();
 
             } catch (Exception e){  // look into using micromanager exceptions

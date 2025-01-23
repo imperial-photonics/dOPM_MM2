@@ -58,6 +58,8 @@ public class TangoXYStage {
         try {
             // does this wait for device, or polls? do i need a 
             // wait for device here?
+            MMStudioInstance.getCore().waitForDevice(device);
+            // customWaitForStage(device);
             double posXStart = MMStudioInstance.getCore().getXPosition(device);
             double posYStart = MMStudioInstance.getCore().getYPosition(device);
             
@@ -169,6 +171,21 @@ public class TangoXYStage {
             default:
                 throw new IllegalArgumentException("Invalid axis, use x or y"); 
         }      
+    }
+    
+    /** get current tango speeds as array [x speed, y speed] from core
+     * 
+     * @param device MM device name
+     * @return (array) tango stage speeds as [x speed, y speed]
+     * @throws Exception 
+     */
+    public static double[] getTangoXySpeed(String device) throws Exception{
+        double[] speeds = new double[2];
+        speeds[0] = Double.parseDouble(
+                MMStudioInstance.getCore().getProperty(device, "SpeedX [mm/s]"));
+        speeds[1] = Double.parseDouble(
+                MMStudioInstance.getCore().getProperty(device, "SpeedY [mm/s]"));
+        return speeds;
     }
     
     /** Generic move command in millimeters, tango uses um units (or 10s of um?)

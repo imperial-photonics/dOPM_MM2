@@ -134,9 +134,16 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         try {
             TangoXYStage.setAxisPosition(XYStage, scanStartUm, scanAxis);
         } catch (Exception e){
-            throw new Exception(String.format(
-                    "Failed to move to start %s scan position %.1f um",
-                    scanAxis, scanStartUm));
+            double speedY = TangoXYStage.getTangoXySpeed(XYStage)[1];
+            double currentY = core_.getYPosition(XYStage);
+            String errMsg = String.format(
+                    "Failed to move to start %s scan position %.1f um in time."
+                    + "Is stage stuck in its scan speed? "
+                    + "Current y speed is %.3f and y position is %.3f."
+                    + "\nError: %s",
+                    scanAxis, scanStartUm, speedY, currentY, e.toString());
+            runnableLogger.severe(errMsg);
+            throw new Exception(errMsg);
         }
         
         try {

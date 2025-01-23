@@ -81,6 +81,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     protected double volumeScanLength;
     
     protected int maxDroppedFrames;
+    protected boolean acquisitionFailed;  // sets true if acq gets error
     
     protected long endClockTimeMs;  // for estimating MDA's snap and overhead duration
 
@@ -267,6 +268,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         // cleanupAcq();
         // setStagePositionsToStart();
         
+        acquisitionFailed = true;
         if (errorWindowsDuringAcq) dialogBoxes.acquisitionErrorWindow(msg);
         
     }
