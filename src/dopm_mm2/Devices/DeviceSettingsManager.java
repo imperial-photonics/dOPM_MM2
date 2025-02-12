@@ -248,6 +248,25 @@ public class DeviceSettingsManager {
             
             Map<String, List<String>> deviceDetailsMap = new HashMap<>(); 
             // Map<String, double> systemConstants = new HashMap<>();
+            List<String> expectedKeys = Arrays.asList(new String[]{
+                "laser_devices",
+                "laser_labels",
+                "laser_daq_do_port",
+                "laser_daq_blanking_lines",
+                "laser_daq_ao_ports",
+                "camera_dopm",
+                "camera_right",
+                "filter",
+                "xy_stage",
+                "z_stage",
+                "mirror_stage",
+                "xy_stage_com_port",
+                "z_stage_com_port",
+                "mirror_stage_com_port",
+                "refractive_index",
+                "opm_angle",
+                "magnification"
+            });
             
             while ((line = br.readLine()) != null) {
                 // remove all whitespaces
@@ -277,7 +296,13 @@ public class DeviceSettingsManager {
                 }
                 deviceManagerLogger.info("Value: " + deviceDetailsMap.get(values[0]));
             }
+            
             deviceManagerLogger.info("Map: " + deviceDetailsMap.toString());
+            for (String key : expectedKeys){
+                if (!deviceDetailsMap.containsKey(key))
+                    throw new Exception("No entry for " + key + "found in config!");
+            }
+            
             // device names, ports, etc.
             deviceDetailsMap.get("test");
             setdOPMCameraName(
@@ -293,16 +318,22 @@ public class DeviceSettingsManager {
             setXyStageName(deviceDetailsMap.get("xy_stage"));
             setZStageName(deviceDetailsMap.get("z_stage"));
             setMirrorStageName(deviceDetailsMap.get("mirror_stage"));
+
+            List<String> xystagecom = deviceDetailsMap.get("xy_stage_com_port");
+
             setXyStageComPort(deviceDetailsMap.get("xy_stage_com_port"));
             setMirrorStageComPort(
                     deviceDetailsMap.get("mirror_stage_com_port"));
-            setZStageComPort(deviceDetailsMap.get("z_stage_com_port"));
             
+            setZStageComPort(deviceDetailsMap.get("z_stage_com_port"));
+            deviceManagerLogger.info("set z stage com port");
             // scope values/constants
             setImmersionRI(Double.parseDouble(
                     deviceDetailsMap.get("refractive_index").get(0)));
+            deviceManagerLogger.info("set RI");
             setOpmAngle(Double.parseDouble(
                     deviceDetailsMap.get("opm_angle").get(0)));
+            deviceManagerLogger.info("opm angle");
             setMagnification(Double.parseDouble(
                     deviceDetailsMap.get("magnification").get(0)));
 
@@ -901,12 +932,16 @@ public class DeviceSettingsManager {
     
     public void setXyStageComPort(List<String> xyStageComPort) {
         if (xyStageComPort != null){
+            deviceManagerLogger.info("Getting XY stage COM port from cfg file");
             setXyStageComPort(xyStageComPort.get(0));
         }
     }
     
     public void setXyStageComPort(String xyStageComPort) {
-        if (!xyStageComPort.equals("")) this.xyStageComPort = xyStageComPort;
+        if (!xyStageComPort.equals("")) {
+            this.xyStageComPort = xyStageComPort;
+            deviceManagerLogger.info("Set XY stage COM port to " + xyStageComPort);
+        }
     }
     
     public boolean getUseMaxScanSpeedForXyStage() {
@@ -924,9 +959,12 @@ public class DeviceSettingsManager {
     }
     
     public void setMirrorStageName(List<String> mirrorStageName) {
-        deviceManagerLogger.info("mirrostagename " + mirrorStageName);
+        deviceManagerLogger.info("mirror stage name " + mirrorStageName);
         if (mirrorStageName != null){
+            deviceManagerLogger.info("mirror stage name not null");
             setMirrorStageName(mirrorStageName.get(0));
+            deviceManagerLogger.info("mirror stage did .get(0)");
+
         }
     }
     
@@ -935,8 +973,13 @@ public class DeviceSettingsManager {
             this.mirrorStageName = mirrorStageName;
             deviceManagerLogger.info("Set mirror stage device name to " 
                     + mirrorStageName);
-            // try to automatically get COM port 
-            setMirrorStageComPort(getPortProperty(mirrorStageName));
+            // try to automatically get COM port
+            /* Having issues here, commenting out for now
+            deviceManagerLogger.info("getting mirror stage COM port automatically");
+            String port = getPortProperty(mirrorStageName);
+            deviceManagerLogger.info("port from MM is " + port);
+            setMirrorStageComPort(port);
+            */
         }
     }
 
@@ -979,14 +1022,30 @@ public class DeviceSettingsManager {
         return mirrorStageComPort;
     }
     
+    /* e.g... TODO REMOVE
+    public void setXyStageComPort(List<String> xyStageComPort) {
+        if (xyStageComPort != null){
+            setXyStageComPort(xyStageComPort.get(0));
+        }
+    }
+    
+    public void setXyStageComPort(String xyStageComPort) {
+        if (!xyStageComPort.equals("")) this.xyStageComPort = xyStageComPort;
+    }*/
+    
     public void setMirrorStageComPort(List<String> mirrorStageComPort) {
         if (mirrorStageComPort != null){
+            deviceManagerLogger.info("Getting COM port from cfg file");
             setMirrorStageComPort(mirrorStageComPort.get(0));
         }
     }
     
     public void setMirrorStageComPort(String mirrorStageComPort) {
-        if (!mirrorStageComPort.equals("")) this.mirrorStageComPort = mirrorStageComPort;
+        if (!mirrorStageComPort.equals("")){
+            this.mirrorStageComPort = mirrorStageComPort;
+            deviceManagerLogger.info("set mirror stage port to " + mirrorStageComPort);
+        }
+        deviceManagerLogger.info("done in setMirrorStageComPort");
     }
 
     public boolean isView1Imaged() {
@@ -1094,6 +1153,12 @@ public class DeviceSettingsManager {
     }
     
     public void setZStageComPort(String zStageComPort) {
+        deviceManagerLogger.info("Trying to set z stage com port");
+        deviceManagerLogger.info("z stage com port is" + zStageComPort);
+        if ( zStageComPort==null){
+            deviceManagerLogger.info("z com is null");
+        }
+        deviceManagerLogger.info("does it equal '' " + zStageComPort.equals(""));
         if (!zStageComPort.equals("")) this.zStageComPort = zStageComPort;
     }
 
