@@ -80,6 +80,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         // linspace)
         double startingScanPosition;
         switch (scanAxis){
+            // starting positions are set in Abstract class bit. 
             case "x":
                 startingScanPosition = startingXPositionUm;
                 break;

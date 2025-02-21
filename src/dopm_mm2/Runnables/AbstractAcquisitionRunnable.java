@@ -132,7 +132,16 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     "MDA's snap and overheads added %d ms to acq",
                     System.currentTimeMillis()-endClockTimeMs));
         }
-        
+        try {
+            // wait until stage has reached position in position list
+            core_.waitForSystem();
+        } catch (Exception e){
+            String msg = "Failed to wait for devices before "
+                    + "acquisition with " + e.toString();
+            runnableLogger.severe(msg);
+            logErrorWithWindow(e);
+            // Thread.sleep(10000);
+        }
         long start = System.currentTimeMillis();           
         
         // Set scan speed variables accordingly for mirror and xystage
@@ -274,7 +283,12 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     }
     
     protected void storeStageStartingPositions() throws Exception{
-        // Get start positions
+        /** Store current positions of stage before acquisition.
+         * Important to make sure it's correct, this stores x,y positions that
+         * are used in the runSingleView methods which do the imaging routines
+         * if it's wrong e.g., we don't wait until stage is stopped in the 
+         * correct position list position, it will be wrong.
+         */
         try {
             startingXPositionUm = core_.getXPosition(XYStage);
             startingYPositionUm = core_.getYPosition(XYStage);

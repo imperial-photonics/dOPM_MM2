@@ -19,6 +19,7 @@ import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import mmcorej.StrVector;
 import dopm_mm2.util.MMStudioInstance;
+import dopm_mm2.util.ConfigParser;
 import mmcorej.Configuration;
 import mmcorej.PropertySetting;
 import org.micromanager.Studio;
@@ -210,6 +211,7 @@ public class DeviceSettingsManager {
         
     }
     
+    // Not really used. To remove?
     public void serializeDeviceSettings(String savepath) throws IOException{
         XMLEncoder e = new XMLEncoder(
                            new BufferedOutputStream(
@@ -225,136 +227,79 @@ public class DeviceSettingsManager {
     /** Loads device names (name in micromanager config) from CSV.
         The idea is to use a GUI to pick the devices from the list, and then
         the GUI interface allows you to save to CSV.
-        * @param configDetailsCsv Filename of config file, format:
-        * ----- CSV file -----
-        *   [0] laser,laserDeviceName1,laserDeviceName2,...,\n
-        *   [1] laser,laserBlankingLine1,laserBlankingLine2,...,\n
-        *   [2] camera,cameraDeviceName,\n
-        *   [3] filter,filterDeviceName,\n
-        *   [4] XYStage,XYStageDeviceName,\n
-        *   [5] Zstage,ZstageDeviceName,\n
-        *   [6] mirrorStage,mirrorStageDeviceName,\n
-        *   [7] XYStageCOMPort,XYStageCOMPort,\n
-        *   [8] ZstageCOMPort,ZstageCOMPort,\n
-        *   [9] mirrorStageCOMPort,mirrorStageCOMPort,\n
-        *   [10] DAQDOport,daqDOPortName,\n  
-        * ---------------------
+        * @param configDetailsJson Filename of config file, json file
      */
-    public void loadSystemSettings(String configDetailsCsv){
-        try (BufferedReader br = new BufferedReader(
-                new FileReader(new File(configDetailsCsv)))) {
+    
+    public void loadSystemSettings(String configDetailsJson){
 
-            String line;
-            
-            Map<String, List<String>> deviceDetailsMap = new HashMap<>(); 
-            // Map<String, double> systemConstants = new HashMap<>();
-            List<String> expectedKeys = Arrays.asList(new String[]{
-                "laser_devices",
-                "laser_labels",
-                "laser_daq_do_port",
-                "laser_daq_blanking_lines",
-                "laser_daq_ao_ports",
-                "camera_dopm",
-                "camera_right",
-                "filter",
-                "xy_stage",
-                "z_stage",
-                "mirror_stage",
-                "xy_stage_com_port",
-                "z_stage_com_port",
-                "mirror_stage_com_port",
-                "refractive_index",
-                "opm_angle",
-                "magnification"
-            });
-            
-            while ((line = br.readLine()) != null) {
-                // remove all whitespaces
-                line = line.replaceAll("\\s+", "");
-                // Skip comment and empty lines
-                if (line.startsWith("//") || line.trim().isEmpty()) {
-                    continue;
-                }
-                // Find the index of the comment start (//)
-                int commentIndex = line.indexOf("//");
+        List<String> expectedKeys = Arrays.asList(new String[]{
+            "laser_devices",
+            "laser_labels",
+            "laser_daq_do_port",
+            "laser_daq_blanking_lines",
+            "laser_daq_ao_ports",
+            "camera_dopm",
+            "camera_right",
+            "filter",
+            "xy_stage",
+            "z_stage",
+            "mirror_stage",
+            "xy_stage_com_port",
+            "z_stage_com_port",
+            "mirror_stage_com_port",
+            "refractive_index",
+            "opm_angle",
+            "magnification"
+        });
 
-                // If there is no comment, return the line as is
-                if (commentIndex != -1) {
-                    line = line.substring(0, commentIndex).trim(); // Remove comment part
-                }
-                
-                String[] values = line.split(",");
-                deviceManagerLogger.info("Reading out from CSV " + values[0]);
-                
-                // hashmap approach to replace messy araylist approach
-                if (values.length > 1){
-                    deviceDetailsMap.put(values[0], Arrays.asList(
-                            Arrays.copyOfRange(values, 1, values.length)));
-                } else{
-                    deviceDetailsMap.put(values[0], 
-                            Arrays.asList(new String[]{""}));
-                }
-                deviceManagerLogger.info("Value: " + deviceDetailsMap.get(values[0]));
-            }
-            
-            deviceManagerLogger.info("Map: " + deviceDetailsMap.toString());
-            for (String key : expectedKeys){
-                if (!deviceDetailsMap.containsKey(key))
-                    throw new Exception("No entry for " + key + "found in config!");
-            }
-            
+        // my config parser class in util
+        try {
+            ConfigParser configParser = 
+                    new ConfigParser(configDetailsJson, expectedKeys);
+            configParser.parse();
+            HashMap<String, List<String>> configMap = configParser.getConfigMap();
+
             // device names, ports, etc.
-            deviceDetailsMap.get("test");
             setdOPMCameraName(
-                    deviceDetailsMap.get("camera_dopm"));
-            setLaserLabels(deviceDetailsMap.get("laser_labels"));
+                    configMap.get("camera_dopm"));
+            setLaserLabels(configMap.get("laser_labels"));
             setLaserBlankingDOport(
-                    deviceDetailsMap.get("laser_daq_do_port"));
+                    configMap.get("laser_daq_do_port"));
             setLaserBlankingDOLines(
-                    deviceDetailsMap.get("laser_daq_blanking_lines"));
+                    configMap.get("laser_daq_blanking_lines"));
             setLaserPowerAOports(
-                    deviceDetailsMap.get("laser_daq_ao_port"));
-            setFilterDeviceName(deviceDetailsMap.get("filter"));
-            setXyStageName(deviceDetailsMap.get("xy_stage"));
-            setZStageName(deviceDetailsMap.get("z_stage"));
-            setMirrorStageName(deviceDetailsMap.get("mirror_stage"));
+                    configMap.get("laser_daq_ao_port"));
+            setFilterDeviceName(configMap.get("filter"));
+            setXyStageName(configMap.get("xy_stage"));
+            setZStageName(configMap.get("z_stage"));
+            setMirrorStageName(configMap.get("mirror_stage"));
 
-            List<String> xystagecom = deviceDetailsMap.get("xy_stage_com_port");
+            List<String> xystagecom = configMap.get("xy_stage_com_port");
 
-            setXyStageComPort(deviceDetailsMap.get("xy_stage_com_port"));
+            setXyStageComPort(configMap.get("xy_stage_com_port"));
             setMirrorStageComPort(
-                    deviceDetailsMap.get("mirror_stage_com_port"));
+                    configMap.get("mirror_stage_com_port"));
             
-            setZStageComPort(deviceDetailsMap.get("z_stage_com_port"));
+            setZStageComPort(configMap.get("z_stage_com_port"));
             deviceManagerLogger.info("set z stage com port");
-            // scope values/constants
+            
+            // scope values/constants, have to access the Double itself in the
+            // list with .get(0) to convert the string to double.
             setImmersionRI(Double.parseDouble(
-                    deviceDetailsMap.get("refractive_index").get(0)));
+                    configMap.get("refractive_index").get(0)));
             deviceManagerLogger.info("set RI");
             setOpmAngle(Double.parseDouble(
-                    deviceDetailsMap.get("opm_angle").get(0)));
+                    configMap.get("opm_angle").get(0)));
             deviceManagerLogger.info("opm angle");
             setMagnification(Double.parseDouble(
-                    deviceDetailsMap.get("magnification").get(0)));
+                    configMap.get("magnification").get(0)));
 
             deviceManagerLogger.info("Set devices with setters");
-
-        } catch (FileNotFoundException ex) {
-            deviceManagerLogger.warning(ex.getMessage());
-            JOptionPane.showMessageDialog(null,
-                    String.format("No config file found at %s",configDetailsCsv),
-                    "File not found",JOptionPane.ERROR_MESSAGE);
-        } catch (IOException ex){
-            deviceManagerLogger.warning(ex.getMessage());
-            JOptionPane.showMessageDialog(null,
-                    String.format("Failed to load file at %s",configDetailsCsv),
-                    "File not found",JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex){
             deviceManagerLogger.warning(ex.toString());
             JOptionPane.showMessageDialog(null,
-                    "Failed to get device names, check if devices are loaded in "
-                            + "MicroManager and is correct. Error: " + ex.toString(),
-                    "File not found", JOptionPane.ERROR_MESSAGE);
+                    "Failed to get device names. " + ex.toString(),
+                    "dOPM config load failed", JOptionPane.ERROR_MESSAGE);
         }
     }
     
@@ -393,7 +338,8 @@ public class DeviceSettingsManager {
     
     /**
      * from the DAQ blanking state work out binary and therefore which laser 
-     * is on (only valid for one laser at a time)
+     * is on (only valid for one laser at a time) I don't think this is 
+     * necessary because MDA handles this stuff so maybe delete all this stuff
      * @return index of current laser (0-4)
      */
     public int getCurrentLaserIdx(){
@@ -734,6 +680,8 @@ public class DeviceSettingsManager {
         maxGlobalTriggeredMirrorScanSpeed = globalMaxMirrorScanSpeed;
     }
 
+    // I think the following are not used, this is handled by MDA -----
+    // <--------
     public List<String> getLaserLabels() {
         return laserLabels;
     }
@@ -767,11 +715,19 @@ public class DeviceSettingsManager {
     public void setFiltersAcq(List<String> filters) {
         this.filtersAcq = filters;
     }
+    // ending section of unused code (TODO remove, Hugh)
+    // -->
+    
 
     public double lateralScanToMirrorNormal(double lateral){
         return 2*lateral*Math.sin(0.5*getOpmAngle()*Math.PI/180)/getImmersionRI();
     }
-    
+    /**
+     * Convert from user inputted PI mirror scan length (in z') to actual PI 
+     * scan direction. TODO update this formula to Hugh's
+     * @param normal scan direction in direction normal to oblique image planes
+     * @return 
+     */
     public double mirrorNormaltoLateralScan(double normal){
         return normal*getImmersionRI()/(2*Math.sin(0.5*getOpmAngle()*Math.PI/180));
     }
@@ -882,7 +838,7 @@ public class DeviceSettingsManager {
     }
     
     public void setXyStageName(List<String> xyStageName) {
-        if (xyStageName != null){
+        if (!xyStageName.isEmpty()){
             setXyStageName(xyStageName.get(0));
         }
     }
@@ -931,9 +887,12 @@ public class DeviceSettingsManager {
     }
     
     public void setXyStageComPort(List<String> xyStageComPort) {
-        if (xyStageComPort != null){
+        deviceManagerLogger.info("xystagecomport" + xyStageComPort);
+        if (!xyStageComPort.isEmpty()){
             deviceManagerLogger.info("Getting XY stage COM port from cfg file");
             setXyStageComPort(xyStageComPort.get(0));
+            deviceManagerLogger.info("set xystagecomport");
+
         }
     }
     
@@ -960,7 +919,7 @@ public class DeviceSettingsManager {
     
     public void setMirrorStageName(List<String> mirrorStageName) {
         deviceManagerLogger.info("mirror stage name " + mirrorStageName);
-        if (mirrorStageName != null){
+        if (!mirrorStageName.isEmpty()){
             deviceManagerLogger.info("mirror stage name not null");
             setMirrorStageName(mirrorStageName.get(0));
             deviceManagerLogger.info("mirror stage did .get(0)");
@@ -1034,7 +993,7 @@ public class DeviceSettingsManager {
     }*/
     
     public void setMirrorStageComPort(List<String> mirrorStageComPort) {
-        if (mirrorStageComPort != null){
+        if (!mirrorStageComPort.isEmpty()){
             deviceManagerLogger.info("Getting COM port from cfg file");
             setMirrorStageComPort(mirrorStageComPort.get(0));
         }
@@ -1069,7 +1028,7 @@ public class DeviceSettingsManager {
     }
 
     public void setOpmAngle(List<Double> opmAngle){
-        if (opmAngle != null){
+        if (!opmAngle.isEmpty()){
             setOpmAngle(opmAngle.get(0));
         }
     }
@@ -1083,7 +1042,7 @@ public class DeviceSettingsManager {
     }
     
     public void setImmersionRI(List<Double> immersionRI){
-        if (immersionRI != null){
+        if (!immersionRI.isEmpty()){
             setImmersionRI(immersionRI.get(0));
         }
     }
@@ -1097,7 +1056,7 @@ public class DeviceSettingsManager {
     }
 
     public void setMagnification(List<Double> magnification){
-        if (magnification != null){
+        if (!magnification.isEmpty()){
             setMagnification(magnification.get(0));
         }
     }
@@ -1120,7 +1079,7 @@ public class DeviceSettingsManager {
     }
 
     public void setZStageName(List<String> zStageName){
-        if (zStageName != null){
+        if (!zStageName.isEmpty()){
             setZStageName(zStageName.get(0));
         }
     }
@@ -1149,7 +1108,7 @@ public class DeviceSettingsManager {
     }
 
     public void setZStageComPort(List<String> zStageComPort) {
-        if (zStageComPort != null) setZStageComPort(zStageComPort.get(0));
+        if (!zStageComPort.isEmpty()) setZStageComPort(zStageComPort.get(0));
     }
     
     public void setZStageComPort(String zStageComPort) {
@@ -1216,6 +1175,8 @@ public class DeviceSettingsManager {
     public void setLaserBlankingDOLines(List<String> laserBlankingDOLines) throws Exception{
         if (laserBlankingDOLines == null){
             deviceManagerLogger.warning("Laser blanking lines is null");
+        } else if (laserBlankingDOLines.isEmpty()){
+           deviceManagerLogger.warning("Laser blanking lines is empty");
         } else if (checkInDeviceList(getLaserBlankingDOport())){
             for (int n=0; n<laserBlankingDOLines.size(); n++){
                 boolean isProp;
@@ -1234,7 +1195,7 @@ public class DeviceSettingsManager {
     }
 
     public void setLaserBlankingDOport(List<String> laserBlankingDOport) {
-        if (laserBlankingDOport != null){
+        if (!laserBlankingDOport.isEmpty()){
             setLaserBlankingDOport(laserBlankingDOport.get(0));
         }
     }
@@ -1264,7 +1225,7 @@ public class DeviceSettingsManager {
     }
 
     public void setFilterDeviceName(List<String> filterDeviceName) {
-        if (filterDeviceName != null){
+        if (!filterDeviceName.isEmpty()){
             setFilterDeviceName(filterDeviceName.get(0));
         }
     }
@@ -1282,7 +1243,7 @@ public class DeviceSettingsManager {
     }
 
     public void setdOPMCameraName(List<String> dOPMCameraName) {
-        if (dOPMCameraName != null){
+        if (!dOPMCameraName.isEmpty()){
             setdOPMCameraName(dOPMCameraName.get(0));
         }
     }

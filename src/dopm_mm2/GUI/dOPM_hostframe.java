@@ -95,7 +95,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         settingsFolderDir = new File(baseFolderDir, "settings").getAbsolutePath();
         
         String defaultConfigPath = new File(System.getenv("USERPROFILE"), 
-                "dopm_plugin/defaultDeviceConfig.csv").getAbsolutePath();
+                "dopm_plugin/dopmDeviceConfig.json").getAbsolutePath();
         
         configFilePath = dopmUserProfile.getString(
                 "configFilePath", defaultConfigPath);
