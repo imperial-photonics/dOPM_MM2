@@ -42,6 +42,6 @@ import javax.swing.JOptionPane;
         JOptionPane.showMessageDialog(null, 
                               "Successfully acquired dOPM dataset. " + msg, 
                               "Acquisition complete", 
-                              JOptionPane.ERROR_MESSAGE);
+                              JOptionPane.INFORMATION_MESSAGE);
     }
 }

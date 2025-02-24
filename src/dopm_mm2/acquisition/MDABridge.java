@@ -36,12 +36,12 @@ import org.micromanager.PropertyMaps;
  *
  * @author OPMuser
  */
-public class MDAProgressManager {
+public class MDABridge {
     private final CMMCore core_;
     private final Studio mm_;
     SequenceSettings mdaSettings;
     
-    private static final Logger acquisitionManagerLogger = Logger.getLogger(MDAProgressManager.class.getName());
+    private static final Logger acquisitionBridgeLogger = Logger.getLogger(MDABridge.class.getName());
         
     private final int acqOrderMode;
     // private final List<String> positionLabels;
@@ -84,7 +84,7 @@ public class MDAProgressManager {
      */
     
     /*
-    public MDAProgressManager() 
+    public MDABridge() 
             throws Exception {
         this(null);
         
@@ -93,7 +93,7 @@ public class MDAProgressManager {
      * 
      * @throws Exception 
      */
-    public MDAProgressManager() throws Exception {
+    public MDABridge() throws Exception {
         // get MDA settings
         core_ = MMStudioInstance.getCore();
         mm_ = MMStudioInstance.getStudio();
@@ -115,7 +115,7 @@ public class MDAProgressManager {
         timepointsMs = calculateTimepoints();
         multiStagePositions = retrieveMultiStagePositions();
         positionLabels = retrivePositionLabels();
-        acquisitionManagerLogger.info("position labels: " + positionLabels);
+        acquisitionBridgeLogger.info("position labels: " + positionLabels);
         
         // only include channels that are currently selected/ticked in MDA
         ChannelSpec chanSpec_;
@@ -134,7 +134,7 @@ public class MDAProgressManager {
         nTimePts = timepointsMs.size();
         nPositionPts = multiStagePositions.size();
         
-        acquisitionManagerLogger.info(String.format(
+        acquisitionBridgeLogger.info(String.format(
                 "Got %d timepoints, %d (xy) positions, "
                 + "%d z positions, and %d channels",
                 nTimePts, nPositionPts, nZPts, nTimePts));
@@ -186,11 +186,14 @@ public class MDAProgressManager {
         } catch (Exception e){
             String err = "Failed to generate acquisition "
                     + "indices with exception:" + e.toString();
-            acquisitionManagerLogger.severe(err);
+            acquisitionBridgeLogger.severe(err);
             throw new Exception(err);
         }
     }
     
+    private void generateAcqIndiciesForLoop(){
+        // TODO implement 
+    }
     private ImmutableSet getIndicesOfSet(List<?> list){
         // will be Integer (the class). copyOf so that collector is made into 
         // set, alternatively replace collect with iterator()
@@ -223,7 +226,7 @@ public class MDAProgressManager {
         // position index = [0,0,0,1,1,1,0,0,0,1,1,1]
         // time index = [0,0,0,0,0,0,0,0,0,0,0,0]
         
-        acquisitionManagerLogger.info("Preparing acquisition index var list");
+        acquisitionBridgeLogger.info("Preparing acquisition index var list");
          // Initialize with 4 null elements
         List<ImmutableSet> vars = 
                 new ArrayList<>(Arrays.asList(new ImmutableSet[4]));
@@ -236,14 +239,14 @@ public class MDAProgressManager {
         
         Set<List<Integer>> cartesianProduct;
 
-        acquisitionManagerLogger.info("Calculating Cartesian product");
+        acquisitionBridgeLogger.info("Calculating Cartesian product");
          // get cartesian product of INDICES
         cartesianProduct = Sets.cartesianProduct(
                     vars.get(0), vars.get(1), vars.get(2), vars.get(3));
 
         // linearize the cartesianProduct by getting the corresponding value in
         // the Set with n_total elements of Lists with 4 elements (p,c,t,z)
-        acquisitionManagerLogger.info("Setting acquisition run indices");
+        acquisitionBridgeLogger.info("Setting acquisition run indices");
         acqPositionIndices = cartesianProduct.stream()
                 .map(idc -> idc.get(positionOrder))
                 .collect(Collectors.toList());
@@ -259,7 +262,7 @@ public class MDAProgressManager {
     }
     
     private List<Double> calculateZSlices(){
-    acquisitionManagerLogger.info("Working out z slices in um");
+    acquisitionBridgeLogger.info("Working out z slices in um");
         List<Double> zSlices_;
         if (mdaSettings.useSlices()){
             double zBottomUm = mdaSettings.sliceZBottomUm();
@@ -277,7 +280,7 @@ public class MDAProgressManager {
     }
     
     private List<String> retrivePositionLabels(){
-        acquisitionManagerLogger.info("Getting stage positions labels");
+        acquisitionBridgeLogger.info("Getting stage positions labels");
         MultiStagePosition[] positions = mm_.positions().getPositionList().getPositions();
         List<String> posLabs;
         posLabs = Arrays.asList(positions).stream().
@@ -291,7 +294,7 @@ public class MDAProgressManager {
     }
     
     private List<MultiStagePosition> retrieveMultiStagePositions(){
-        acquisitionManagerLogger.info("Getting stage positions");
+        acquisitionBridgeLogger.info("Getting stage positions");
         PositionList positionList = mm_.positions().getPositionList();
         List<MultiStagePosition> multiStagePositions_ = 
                 Arrays.asList(positionList.getPositions());
@@ -306,7 +309,7 @@ public class MDAProgressManager {
     
     
     private List<Double> calculateTimepoints(){
-        acquisitionManagerLogger.info("Working out timepoints in ms");
+        acquisitionBridgeLogger.info("Working out timepoints in ms");
         List<Double> timepoints; 
         if (mdaSettings.useFrames()){
             double timeIntervalMs = mdaSettings.intervalMs();
@@ -374,7 +377,7 @@ public class MDAProgressManager {
         try {
             pmapGroups = getAllConfigGroupSettings();
         } catch (Exception e){
-            acquisitionManagerLogger.severe("Failed to get property map "
+            acquisitionBridgeLogger.severe("Failed to get property map "
                     + "of device property settings in groups/presets: " 
                     + e.getMessage());
         }
@@ -430,7 +433,7 @@ public class MDAProgressManager {
                         nTimePts, nPositionPts, nZPts, nChannelPts);
                 throw new IndexOutOfBoundsException(msg);
             }
-            acquisitionManagerLogger.info("Reached final point in MDA");
+            acquisitionBridgeLogger.info("Reached final point in MDA");
         } else {
             nextMDAAcqIndex();
         }
@@ -493,7 +496,7 @@ public class MDAProgressManager {
         String viewString = String.format("View %d", currentView);
         // StrVector viewStates = core_.getAvailableConfigs(viewString);
         core_.setConfig("dOPM View", viewString);
-        acquisitionManagerLogger.info("set config to " + currentView);
+        acquisitionBridgeLogger.info("set config to " + currentView);
         core_.waitForConfig("dOPM View", viewString);
         this.currentView = currentView;
 

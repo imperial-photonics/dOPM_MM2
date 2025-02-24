@@ -12,13 +12,18 @@ import org.micromanager.ScriptController;
 import org.micromanager.data.Datastore;
 import dopm_mm2.Devices.DeviceSettingsManager;
 import dopm_mm2.Runnables.MDARunnable;
+import dopm_mm2.Runnables.opmSnap;
+import dopm_mm2.acquisition.MDASettings;
 import dopm_mm2.util.MMStudioInstance;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.List;
 import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
+import org.micromanager.acquisition.ChannelSpec;
 import org.micromanager.propertymap.MutablePropertyMapView;
 
 /**
@@ -178,10 +183,6 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         saveToDiskCheckBox = new javax.swing.JCheckBox();
         startButton = new javax.swing.JButton();
         stopButton = new javax.swing.JButton();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        debugTextArea = new javax.swing.JTextArea();
-        jProgressBar = new javax.swing.JProgressBar();
-        snapTestButton = new javax.swing.JButton();
         jPanel1 = new javax.swing.JPanel();
         jTabbedPane1 = new javax.swing.JTabbedPane();
         mirrorScanSettingsPanel = new javax.swing.JPanel();
@@ -194,6 +195,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         scanLengthLabel1 = new javax.swing.JLabel();
         scanSpeedLabel1 = new javax.swing.JLabel();
         scanIntervalLabel1 = new javax.swing.JLabel();
+        jSeparator1 = new javax.swing.JSeparator();
         xyStageScanSettingsPanel = new javax.swing.JPanel();
         xyScanLengthField = new javax.swing.JTextField();
         xyScanSpeedField = new javax.swing.JTextField();
@@ -205,6 +207,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         fracOfMaxXyLabel = new javax.swing.JLabel();
         fracOfMaxXyField = new javax.swing.JTextField();
         jPanel2 = new javax.swing.JPanel();
+        jSeparator2 = new javax.swing.JSeparator();
         triggerModeLabel = new javax.swing.JLabel();
         triggerModeComboBox = new javax.swing.JComboBox<>();
         mirrorScanRadioButton = new javax.swing.JRadioButton();
@@ -214,6 +217,12 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         viewsLabel = new javax.swing.JLabel();
         view1CheckBox = new javax.swing.JCheckBox();
         view2CheckBox = new javax.swing.JCheckBox();
+        previewPanel = new javax.swing.JPanel();
+        previewViewComboBox = new javax.swing.JComboBox<>();
+        previewChannelComboBox = new javax.swing.JComboBox<>();
+        previewChannelLabel = new javax.swing.JLabel();
+        previewViewLabel = new javax.swing.JLabel();
+        snapTestButton = new javax.swing.JButton();
         jMenuBar1 = new javax.swing.JMenuBar();
         jMenu1 = new javax.swing.JMenu();
         openDeviceConfigMenuItem = new javax.swing.JMenuItem();
@@ -278,29 +287,17 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 .addContainerGap())
         );
 
-        startButton.setText("Start");
+        startButton.setText("Run");
         startButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 startButtonActionPerformed(evt);
             }
         });
 
-        stopButton.setText("Stop");
+        stopButton.setText("Interrupt");
         stopButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 stopButtonActionPerformed(evt);
-            }
-        });
-
-        debugTextArea.setEditable(false);
-        debugTextArea.setColumns(20);
-        debugTextArea.setRows(5);
-        jScrollPane1.setViewportView(debugTextArea);
-
-        snapTestButton.setText("snap test");
-        snapTestButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                snapTestButtonActionPerformed(evt);
             }
         });
 
@@ -314,7 +311,6 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         mirrorScanLengthField.setText(String.format("%.1f", deviceSettings.getMirrorScanLength()));
         mirrorScanLengthField.setInputVerifier(new typeVerifierDouble());
-        mirrorScanLengthField.setPreferredSize(new java.awt.Dimension(100, 22));
         mirrorScanLengthField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 mirrorScanLengthFieldActionPerformed(evt);
@@ -338,7 +334,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
-        mirrorMaxSpeedCheckBox.setText("Max");
+        mirrorMaxSpeedCheckBox.setText("Automatically calculate speed");
         mirrorMaxSpeedCheckBox.setToolTipText("Tick to use fastest possible scanning speed for given settings");
         mirrorMaxSpeedCheckBox.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
         mirrorMaxSpeedCheckBox.addActionListener(new java.awt.event.ActionListener() {
@@ -357,7 +353,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
-        fracOfMaxMirrorLabel.setText("Fraction of Max");
+        fracOfMaxMirrorLabel.setText("Fraction of Max Speed");
 
         scanLengthLabel1.setText("Z' scan length (µm)");
         scanLengthLabel1.setToolTipText("Scan length in z' (normal to imaged plane direction)");
@@ -367,6 +363,8 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         scanIntervalLabel1.setText("Z' scan interval (µm)");
 
+        jSeparator1.setOrientation(javax.swing.SwingConstants.VERTICAL);
+
         javax.swing.GroupLayout mirrorScanSettingsPanelLayout = new javax.swing.GroupLayout(mirrorScanSettingsPanel);
         mirrorScanSettingsPanel.setLayout(mirrorScanSettingsPanelLayout);
         mirrorScanSettingsPanelLayout.setHorizontalGroup(
@@ -374,28 +372,31 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
-                            .addComponent(scanSpeedLabel1)
-                            .addGap(7, 7, 7))
-                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, mirrorScanSettingsPanelLayout.createSequentialGroup()
-                            .addComponent(scanLengthLabel1)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, mirrorScanSettingsPanelLayout.createSequentialGroup()
-                        .addComponent(scanIntervalLabel1)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
-                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(mirrorScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(mirrorScanLengthField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
+                        .addComponent(scanSpeedLabel1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(mirrorScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(mirrorMaxSpeedCheckBox, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 3, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(fracOfMaxMirrorLabel)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(fracOfMaxMirrorField, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(11, Short.MAX_VALUE))
+                        .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
+                                .addComponent(fracOfMaxMirrorLabel)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(fracOfMaxMirrorField, javax.swing.GroupLayout.PREFERRED_SIZE, 56, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(mirrorMaxSpeedCheckBox)))
+                    .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
+                        .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, mirrorScanSettingsPanelLayout.createSequentialGroup()
+                                .addComponent(scanIntervalLabel1)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED))
+                            .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
+                                .addComponent(scanLengthLabel1)
+                                .addGap(5, 5, 5)))
+                        .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                            .addComponent(mirrorScanLengthField, javax.swing.GroupLayout.DEFAULT_SIZE, 100, Short.MAX_VALUE)
+                            .addComponent(mirrorScanIntervalField))))
+                .addContainerGap(71, Short.MAX_VALUE))
         );
         mirrorScanSettingsPanelLayout.setVerticalGroup(
             mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -405,26 +406,29 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                     .addComponent(mirrorScanLengthField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(scanLengthLabel1))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(mirrorMaxSpeedCheckBox)
-                        .addComponent(fracOfMaxMirrorField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(fracOfMaxMirrorLabel))
-                    .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(mirrorScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(scanSpeedLabel1)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(scanIntervalLabel1)
                     .addComponent(mirrorScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
+                        .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(scanSpeedLabel1)
+                                .addComponent(mirrorScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(mirrorMaxSpeedCheckBox))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(fracOfMaxMirrorLabel)
+                            .addComponent(fracOfMaxMirrorField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 50, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(14, Short.MAX_VALUE))
         );
 
         jTabbedPane1.addTab("Mirror scan", mirrorScanSettingsPanel);
 
         xyScanLengthField.setText(String.format("%.1f", deviceSettings.getXyStageScanLength()));
         xyScanLengthField.setInputVerifier(new typeVerifierDouble());
-        xyScanLengthField.setPreferredSize(new java.awt.Dimension(100, 22));
         xyScanLengthField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 xyScanLengthFieldActionPerformed(evt);
@@ -450,8 +454,9 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
-        xyMaxSpeedCheckBox.setText("Max");
+        xyMaxSpeedCheckBox.setText("Automatically calculate speed");
         xyMaxSpeedCheckBox.setToolTipText("Tick to use fastest possible scanning speed for given settings");
+        xyMaxSpeedCheckBox.setActionCommand("Automatically calculate speed");
         xyMaxSpeedCheckBox.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
         xyMaxSpeedCheckBox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -466,7 +471,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         scanIntervalLabel.setText("Scan interval (µm)");
 
-        fracOfMaxXyLabel.setText("Fraction of Max");
+        fracOfMaxXyLabel.setText("Fraction of Max Speed");
 
         fracOfMaxXyField.setText(String.format("%.2f",deviceSettings.getScanSpeedSafetyFactorXy()));
         fracOfMaxXyField.setToolTipText("The percentage of the maximum theoretical scan speed, 95% is recommended");
@@ -489,32 +494,41 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             .addGap(0, 0, Short.MAX_VALUE)
         );
 
+        jSeparator2.setOrientation(javax.swing.SwingConstants.VERTICAL);
+
         javax.swing.GroupLayout xyStageScanSettingsPanelLayout = new javax.swing.GroupLayout(xyStageScanSettingsPanel);
         xyStageScanSettingsPanel.setLayout(xyStageScanSettingsPanelLayout);
         xyStageScanSettingsPanelLayout.setHorizontalGroup(
             xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, xyStageScanSettingsPanelLayout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addComponent(scanIntervalLabel)
-                        .addComponent(scanLengthLabel))
-                    .addComponent(scanSpeedLabel))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addContainerGap(8, Short.MAX_VALUE)
                 .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(xyScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(xyScanLengthField, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(xyStageScanSettingsPanelLayout.createSequentialGroup()
-                        .addComponent(xyScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(scanIntervalLabel)
+                        .addGap(375, 375, 375)
+                        .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(scanLengthLabel))
+                .addContainerGap(8, Short.MAX_VALUE))
+            .addGroup(xyStageScanSettingsPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(xyStageScanSettingsPanelLayout.createSequentialGroup()
+                        .addComponent(scanSpeedLabel)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(xyMaxSpeedCheckBox)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(xyScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                        .addComponent(xyScanLengthField, javax.swing.GroupLayout.Alignment.TRAILING)
+                        .addComponent(xyScanIntervalField, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jSeparator2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(xyStageScanSettingsPanelLayout.createSequentialGroup()
                         .addComponent(fracOfMaxXyLabel)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(fracOfMaxXyField, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addComponent(fracOfMaxXyField, javax.swing.GroupLayout.PREFERRED_SIZE, 1, Short.MAX_VALUE))
+                    .addComponent(xyMaxSpeedCheckBox))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
         xyStageScanSettingsPanelLayout.setVerticalGroup(
             xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -526,24 +540,30 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(xyScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(xyMaxSpeedCheckBox)
-                        .addComponent(fracOfMaxXyLabel)
-                        .addComponent(fracOfMaxXyField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(scanSpeedLabel))
+                        .addComponent(xyScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(scanIntervalLabel))
                     .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(xyScanIntervalField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(scanIntervalLabel))
-                .addContainerGap(12, Short.MAX_VALUE))
+                .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(xyStageScanSettingsPanelLayout.createSequentialGroup()
+                        .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(scanSpeedLabel)
+                                .addComponent(xyScanSpeedField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(xyMaxSpeedCheckBox))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(fracOfMaxXyLabel)
+                            .addComponent(fracOfMaxXyField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addComponent(jSeparator2, javax.swing.GroupLayout.PREFERRED_SIZE, 50, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(14, Short.MAX_VALUE))
         );
 
         jTabbedPane1.addTab("XY Stage scan", xyStageScanSettingsPanel);
 
         triggerModeLabel.setText("Trigger mode");
 
-        triggerModeComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "External trigger (global reset)", "External trigger (global exposure with rolling)", "Untriggered" }));
+        triggerModeComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "External trigger (global reset)", "External trigger (global exposure with rolling) <NOT IMPLEMENTED>", "Untriggered <NOT IMPLEMENTED>" }));
         triggerModeComboBox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 triggerModeComboBoxActionPerformed(evt);
@@ -613,7 +633,6 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                             .addComponent(triggerModeLabel, javax.swing.GroupLayout.Alignment.TRAILING))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(triggerModeComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addGroup(jPanel1Layout.createSequentialGroup()
                                 .addComponent(mirrorScanRadioButton)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -623,17 +642,17 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                             .addGroup(jPanel1Layout.createSequentialGroup()
                                 .addComponent(view1CheckBox)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(view2CheckBox)))
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addComponent(jTabbedPane1, javax.swing.GroupLayout.Alignment.TRAILING))
-                .addContainerGap())
+                                .addComponent(view2CheckBox))
+                            .addComponent(triggerModeComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 208, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(6, 6, 6)
+                .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 163, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(triggerModeComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(triggerModeLabel))
@@ -654,7 +673,59 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         );
 
         jTabbedPane1.getAccessibleContext().setAccessibleName("Mirror scan");
-        jTabbedPane1.getAccessibleContext().setAccessibleDescription("");
+
+        previewPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Preview"));
+
+        previewViewComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+
+        previewChannelComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(getChannelPresets()));
+        previewChannelComboBox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                previewChannelComboBoxActionPerformed(evt);
+            }
+        });
+
+        previewChannelLabel.setText("Channel");
+
+        previewViewLabel.setText("View");
+
+        snapTestButton.setText("Snap");
+        snapTestButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                snapTestButtonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout previewPanelLayout = new javax.swing.GroupLayout(previewPanel);
+        previewPanel.setLayout(previewPanelLayout);
+        previewPanelLayout.setHorizontalGroup(
+            previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(previewPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(previewChannelLabel, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(previewViewLabel, javax.swing.GroupLayout.Alignment.TRAILING))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(snapTestButton)
+                    .addComponent(previewViewComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(previewChannelComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        previewPanelLayout.setVerticalGroup(
+            previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, previewPanelLayout.createSequentialGroup()
+                .addGroup(previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(previewChannelComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(previewChannelLabel))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(previewViewComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(previewViewLabel))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(snapTestButton)
+                .addContainerGap())
+        );
 
         jMenu1.setText("File");
 
@@ -685,42 +756,35 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(previewPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                        .addComponent(fileSettingsPanel, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(startButton)
-                            .addComponent(stopButton)
-                            .addComponent(snapTestButton))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jProgressBar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(jScrollPane1)))
-                    .addComponent(fileSettingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
+                    .addComponent(startButton)
+                    .addComponent(stopButton)))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(25, 25, 25)
+                        .addComponent(startButton)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(stopButton)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(fileSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 69, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, 13, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(startButton)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(stopButton)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(snapTestButton)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(previewPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(105, Short.MAX_VALUE))
         );
 
         pack();
@@ -794,6 +858,12 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         // mm_.getAcquisitionManager().runAcquisitionNonblocking();
         // Thread testThread = new Thread(testRunnable);
         // testThread.start();
+        int chanIdx = previewChannelComboBox.getSelectedIndex();
+        int viewIdx = previewViewComboBox.getSelectedIndex();
+        
+        Runnable opmSnapRunnable = new opmSnap(mm_, deviceSettings, chanIdx, viewIdx);
+        opmSnapRunnable.run();
+
     }//GEN-LAST:event_snapTestButtonActionPerformed
 
     private void openDeviceConfigMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openDeviceConfigMenuItemActionPerformed
@@ -942,6 +1012,28 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         deviceSettings.setXyStageScanLength(scanLength);
     }//GEN-LAST:event_xyScanLengthFieldActionPerformed
 
+    private void previewChannelComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_previewChannelComboBoxActionPerformed
+
+    }//GEN-LAST:event_previewChannelComboBoxActionPerformed
+
+    /**
+     * Get name of presets used in the (current) channel Group, set in the MDA
+     * used for the dropdown menu in the preview snap mode
+     * @return 
+     */
+    private String[] getChannelPresets(){
+        MDASettings mda;
+        try {
+            mda = new MDASettings(mm_);
+        } catch (Exception e){
+            dOPM_hostframeLogger.warning("Couldn't get MDA settings with " 
+                    + e.toString());
+            return new String[]{};
+        }
+        String[] presets = (String[]) mda.getChannelNames().toArray();
+        return presets;
+    }
+    
     
     class pcVerifier extends InputVerifier {
         @Override
@@ -1112,7 +1204,6 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private javax.swing.JButton browseDirectoryField;
     private javax.swing.ButtonGroup buttonGroup1;
     private javax.swing.JMenuItem clearLogsMenuItem;
-    private javax.swing.JTextArea debugTextArea;
     private javax.swing.JPanel fileSettingsPanel;
     private javax.swing.JTextField fracOfMaxMirrorField;
     private javax.swing.JLabel fracOfMaxMirrorLabel;
@@ -1123,8 +1214,8 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private javax.swing.JMenuBar jMenuBar1;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
-    private javax.swing.JProgressBar jProgressBar;
-    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JSeparator jSeparator1;
+    private javax.swing.JSeparator jSeparator2;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JCheckBox mirrorMaxSpeedCheckBox;
     private javax.swing.JTextField mirrorScanIntervalField;
@@ -1133,6 +1224,11 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     private javax.swing.JPanel mirrorScanSettingsPanel;
     private javax.swing.JTextField mirrorScanSpeedField;
     private javax.swing.JMenuItem openDeviceConfigMenuItem;
+    private javax.swing.JComboBox<String> previewChannelComboBox;
+    private javax.swing.JLabel previewChannelLabel;
+    private javax.swing.JPanel previewPanel;
+    private javax.swing.JComboBox<String> previewViewComboBox;
+    private javax.swing.JLabel previewViewLabel;
     private javax.swing.JTextField saveDirectoryField;
     private javax.swing.JLabel saveDirectoryLabel;
     private javax.swing.JCheckBox saveToDiskCheckBox;

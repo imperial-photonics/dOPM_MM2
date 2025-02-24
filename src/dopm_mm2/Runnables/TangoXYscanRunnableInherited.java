@@ -6,7 +6,7 @@ package dopm_mm2.Runnables;
 
 import dopm_mm2.GUI.dOPM_hostframe;
 import dopm_mm2.Devices.TangoXYStage;
-import dopm_mm2.acquisition.MDAProgressManager;
+import dopm_mm2.acquisition.MDABridge;
 import dopm_mm2.util.FileMM;
 import java.io.File;
 import java.io.IOException;
@@ -27,7 +27,7 @@ import org.micromanager.display.DisplayWindow;
  */
 public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
     public TangoXYscanRunnableInherited(dOPM_hostframe frame_ref, 
-            MDAProgressManager acqProgressMgr){
+            MDABridge acqProgressMgr){
         super(frame_ref, acqProgressMgr);
         
         // init dimenions of tango

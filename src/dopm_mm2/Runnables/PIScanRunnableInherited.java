@@ -7,7 +7,7 @@ package dopm_mm2.Runnables;
 import dopm_mm2.Devices.PIStage;
 import dopm_mm2.GUI.dOPM_hostframe;
 import static dopm_mm2.Runnables.AbstractAcquisitionRunnable.runnableLogger;
-import dopm_mm2.acquisition.MDAProgressManager;
+import dopm_mm2.acquisition.MDABridge;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import org.micromanager.PropertyMap;
@@ -24,7 +24,7 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
         private final int PIDeviceID;
         
         public PIScanRunnableInherited(dOPM_hostframe frame_ref, 
-                MDAProgressManager acqProgressMgr){
+                MDABridge acqProgressMgr){
         super(frame_ref, acqProgressMgr);
         PIDeviceID = 1;
     }

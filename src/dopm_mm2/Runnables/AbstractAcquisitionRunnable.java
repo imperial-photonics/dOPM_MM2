@@ -30,7 +30,7 @@ import org.micromanager.data.Image;
 import org.micromanager.data.Metadata;
 import org.micromanager.data.SummaryMetadata;
 
-import dopm_mm2.acquisition.MDAProgressManager;
+import dopm_mm2.acquisition.MDABridge;
 import dopm_mm2.util.dialogBoxes;
 import loci.formats.meta.BaseMetadata;
 
@@ -48,7 +48,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     protected final CMMCore core_;
     protected final Studio mm_;
     protected final DeviceSettingsManager deviceSettings;
-    protected final MDAProgressManager currentAcq;
+    protected final MDABridge currentAcq;
     protected double currentViewAngle;
     
     protected String settingsOutDir;
@@ -91,7 +91,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         Logger.getLogger(MDARunnable.class.getName());
        
     public AbstractAcquisitionRunnable(dOPM_hostframe frame_ref, 
-            MDAProgressManager acqProgressMgr) {
+            MDABridge acqProgressMgr) {
         frame_ = frame_ref;  // consider changing dependency to just deviceSettings
         mm_ = dOPM_hostframe.mm_;
         core_ = mm_.getCMMCore();
@@ -461,7 +461,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         
         PropertyMap myPropertyMap; 
         try {
-            // Get my MDAProgressManager metadata
+            // Get my MDABridge metadata
             // possibly redudant, this was just used to save file
             
             runnableLogger.info("Getting more metadata");

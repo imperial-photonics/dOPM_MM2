@@ -9,7 +9,7 @@ import dopm_mm2.Devices.PIStage;
 import dopm_mm2.Devices.TangoXYStage;
 import dopm_mm2.GUI.dOPM_hostframe;
 import static dopm_mm2.Runnables.AbstractAcquisitionRunnable.runnableLogger;
-import dopm_mm2.acquisition.MDAProgressManager;
+import dopm_mm2.acquisition.MDABridge;
 import dopm_mm2.util.dialogBoxes;
 import java.io.File;
 import java.io.IOException;
@@ -42,7 +42,7 @@ public class MDARunnable implements Runnable {
     private static final Logger mdaRunnableLogger = 
             Logger.getLogger(MDARunnable.class.getName());
     private AcquisitionManager acq_;
-    private MDAProgressManager mdaMgr;
+    private MDABridge mdaMgr;
     private AbstractAcquisitionRunnable snapRunnable;
     protected String acqTimestamp;
     protected String scanTypeLabel;
@@ -57,7 +57,7 @@ public class MDARunnable implements Runnable {
         // get aquisition progress manager--retrieves current index of each dim
         // maybe move to run()
         try {
-            mdaMgr = new MDAProgressManager();
+            mdaMgr = new MDABridge();
         } catch (Exception e){
             String err = "Failed to create the "
                     + "dOPM MDA acqusition manager (used to find "
