@@ -7,10 +7,12 @@ package dopm_mm2.util;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -31,46 +33,37 @@ public class ConfigParser {
 
     public void ConfigParser(){};
 
-    /**
-     * 
-     * @param configDetailsJson config file path
-     */
-    public ConfigParser(String configDetailsJson){
-        this(configDetailsJson, new ArrayList());
-    }
         
-    /** Class to parse JSON configs
-     *
+    /** 
+     * Class to parse JSON configs
      * @param configDetailsJson config file path
-     * @param expectedKeys keys/entries expected to be in config file
      */
-    public ConfigParser(String configDetailsJson, List<String> expectedKeys) {        
+    public ConfigParser(String configDetailsJson) {        
         try {
             // Read JSON file
+            configParserLogger.info("Reading JSON config");
             String content = new String(Files.readAllBytes(Paths.get(configDetailsJson)));
             this.jsonObject = new JSONObject(content);
-            this.expectedKeys = expectedKeys;
-            configMap = new HashMap<String, List<String>>(); 
-        
-        } catch (FileNotFoundException ex) {
-            configParserLogger.warning(ex.getMessage());
-            JOptionPane.showMessageDialog(null,
-                    String.format("No config file found at %s",configDetailsJson),
-                    "File not found",JOptionPane.ERROR_MESSAGE);
         } catch (IOException ex){
             configParserLogger.warning(ex.getMessage());
             JOptionPane.showMessageDialog(null,
                     String.format("Failed to load file at %s",configDetailsJson),
                     "File not found",JOptionPane.ERROR_MESSAGE);
+        } catch (InvalidPathException exp){
+            configParserLogger.warning(exp.getMessage());
+            JOptionPane.showMessageDialog(null,
+                    String.format("Invalid path to file %s", exp.toString()), 
+                    "File not found",JOptionPane.ERROR_MESSAGE);
         } catch (JSONException jex){
             configParserLogger.warning(jex.getMessage());
             JOptionPane.showMessageDialog(null,
-                    String.format("Error opening JSON %s", jex.toString()), 
-                    "File not found",JOptionPane.ERROR_MESSAGE);
+                    String.format("Error parsing JSON %s", jex.toString()), 
+                    "JSON error",JOptionPane.ERROR_MESSAGE);
         }
     }
     
-    public void parse(){
+    public HashMap getMap(List<String> expectedKeys){
+        configMap = new HashMap<String, List<String>>(); 
         try {
             for (String key : expectedKeys) {
                 if (jsonObject.has(key)) {
@@ -84,20 +77,27 @@ public class ConfigParser {
                     configParserLogger.warning("No entry for " + key + " found in config!");
                 }
             }
-            configParserLogger.warning("No expected keys supplied, map "
-                    + "won't check missing keys");
-            // Log parsed data
             configParserLogger.info("Map: " + configMap.toString());
+            return configMap;
         } catch (JSONException jex){
             configParserLogger.warning(jex.getMessage());
             JOptionPane.showMessageDialog(null,
-                    String.format("Error parsing JSON %s", jex.toString()), 
-                    "File not found",JOptionPane.ERROR_MESSAGE);
+                    String.format("Error getting data from JSON %s", jex.toString()), 
+                    "JSON error",JOptionPane.ERROR_MESSAGE);
+            return configMap;
         }
     }
     
-    public HashMap getConfigMap(){
-        return configMap;
+    public HashMap getMap(){
+        // get iterator for keys in json
+        configParserLogger.warning(
+                "Getting config map blindly (without checking expected keys)");
+        Iterator<String> keys = jsonObject.keys();
+        List<String> keysStr = new ArrayList<>();
+        while(keys.hasNext()){
+            keysStr.add(keys.next());
+        }
+        return getMap(keysStr);
     }
     
 }

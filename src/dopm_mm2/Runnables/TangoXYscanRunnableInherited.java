@@ -4,31 +4,37 @@
  */
 package dopm_mm2.Runnables;
 
-import dopm_mm2.GUI.dOPM_hostframe;
+import dopm_mm2.Devices.DeviceSettingsManager;
 import dopm_mm2.Devices.TangoXYStage;
-import dopm_mm2.acquisition.MDABridge;
-import dopm_mm2.util.FileMM;
-import java.io.File;
+import dopm_mm2.acquisition.MdaBridge;
+import static dopm_mm2.dOPM_MM2.frame_;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import org.micromanager.PropertyMap;
 import org.micromanager.PropertyMaps;
+import org.micromanager.Studio;
 import org.micromanager.data.Datastore;
 import org.micromanager.data.SummaryMetadata;
 import org.micromanager.display.DisplayWindow;
 
-/** Runnable for Tango XY stage scanning acquisition.
+/** 
+ * Runnable for a Marzhauser stage triggered y scan that extends the 
+ * general "AbstractAcquisitionRunnable" which contains methods shared between
+ * PI scans and stage scans such as {@link #acquireTriggeredDataset}.
+ * Implements the specifics of a y stage-scan including setting up its 
+ * triggering.
  * Note that all units are in um here because default precision too low to
  * set trigger distance to order 1um, and also the triggering for the OPM 
  * in 712 was also done in micron
  * 
  *
- * @author lnr19
+ * @author Leo Rowe-Brown
  */
-public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
-    public TangoXYscanRunnableInherited(dOPM_hostframe frame_ref, 
-            MDABridge acqProgressMgr){
-        super(frame_ref, acqProgressMgr);
+public class TangoXYScanRunnableInherited extends AbstractAcquisitionRunnable{
+    public TangoXYScanRunnableInherited(Studio mm,
+            DeviceSettingsManager deviceSettings,
+            MdaBridge acqProgressMgr){
+        super(mm, deviceSettings, acqProgressMgr);
         
         // init dimenions of tango
         try {
@@ -159,7 +165,7 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
         
         // Create datastore
         Datastore store;
-        if (frame_.isSaveImgToDisk()){
+        if (saveToDisk){
             try {
                 PropertyMap myPropertyMap = PropertyMaps.builder().
                     putString("scan type", "stage scanning").
@@ -230,14 +236,14 @@ public class TangoXYscanRunnableInherited extends AbstractAcquisitionRunnable{
                 try {
                     double freezeStart = System.currentTimeMillis();
                     store.freeze();
-                    if(frame_.isSaveImgToDisk()) store.close();
+                    if(saveToDisk) store.close();
                     runnableLogger.info(String.format("DS freezing time %.2f ms",
                             System.currentTimeMillis()-freezeStart));
                 } catch (IOException eio){
                     runnableLogger.severe("Couldn't freeze/close datastore");
                 }
             } else {
-                if(frame_.isSaveImgToDisk()) store.close();
+                if(saveToDisk) store.close();
                 runnableLogger.severe("Datastore empty");
             }
         }

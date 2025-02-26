@@ -5,7 +5,7 @@
 package dopm_mm2.Runnables;
 
 import dopm_mm2.Devices.DeviceSettingsManager;
-import dopm_mm2.acquisition.MDASettings;
+import dopm_mm2.acquisition.MdaSettings;
 import dopm_mm2.util.dialogBoxes;
 import java.util.List;
 
@@ -42,9 +42,9 @@ public class opmSnap implements Runnable {
             Logger.getLogger(opmSnap.class.getName());
     private DisplayWindow display;
     private Datastore store;
-    private MDASettings mda;
+    private MdaSettings mda;
     
-    private String channelGroup;  // get from MDASettings
+    private String channelGroup;  // get from MdaSettings
     private String viewGroup;  // should be "dOPM View"
     
     private int channelIdx;  // index of preset in channel group to image
@@ -66,7 +66,7 @@ public class opmSnap implements Runnable {
     public void run(){
         opmSnapLogger.info("Snapping current OPM view");
         try {
-            this.mda = new MDASettings(mm_);
+            this.mda = new MdaSettings(mm_);
 
             // store = mm_.data().createRAMDatastore();
             // display = mm_.displays().createDisplay(store);
@@ -74,13 +74,16 @@ public class opmSnap implements Runnable {
             String camera = deviceSettings.getdOPMCameraName();
             core_.setProperty("Core", "Camera", camera);
             
+            long currentTimeMillis = System.currentTimeMillis();
             // enable blanking 
             try {
                 core_.setProperty(DAQDOPort, "Blanking", "On");
             } catch (Exception e){
                 dialogBoxes.acquisitionErrorWindow(e);
             }
-            
+            long timeElapsed = System.currentTimeMillis() - currentTimeMillis;
+            opmSnapLogger.info("Time taken to enable blanking " + timeElapsed + " ms");
+
             // get channel group info
             List<ChannelSpec> chspec = mda.getChannelSpecs();
             
@@ -90,17 +93,21 @@ public class opmSnap implements Runnable {
                 // set channel config  (if it exists in MDA)
                 core_.setConfig(channelGroup, channelNames.get(channelIdx));
             } 
+            currentTimeMillis = System.currentTimeMillis();
             // Now set dOPM view
-            // get presets from 
+            // get presets from dOPM View config (name is hard coded here)
             StrVector availableConfigs = core_.getAvailableConfigs("dOPM View");
             // if (availableConfigs.get(0).equals("NewPreset")) viewIdx++;
             core_.setConfig(viewGroup, availableConfigs.get(viewIdx));
-            
+            timeElapsed = System.currentTimeMillis() - currentTimeMillis;
+            opmSnapLogger.info("Time taken to set view " + timeElapsed + " ms");
+            currentTimeMillis = System.currentTimeMillis();
             Image img = mm_.live().snap(false).get(0);
 
             Album album = mm_.getAlbum();
             album.addImage(img);
-            
+            opmSnapLogger.info("Time taken to snap " + timeElapsed + " ms");
+
             // enable blanking 
             try {
                 // switch laser off by making all DO low

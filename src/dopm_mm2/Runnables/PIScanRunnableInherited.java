@@ -4,28 +4,33 @@
  */
 package dopm_mm2.Runnables;
 
+import dopm_mm2.Devices.DeviceSettingsManager;
 import dopm_mm2.Devices.PIStage;
-import dopm_mm2.GUI.dOPM_hostframe;
 import static dopm_mm2.Runnables.AbstractAcquisitionRunnable.runnableLogger;
-import dopm_mm2.acquisition.MDABridge;
+import dopm_mm2.acquisition.MdaBridge;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import org.micromanager.PropertyMap;
 import org.micromanager.PropertyMaps;
+import org.micromanager.Studio;
 import org.micromanager.data.Datastore;
 import org.micromanager.data.SummaryMetadata;
 import org.micromanager.display.DisplayWindow;
 
 /**
- *
- * @author OPMuser
+ * Runnable for a PI scan that extends the general "AbstractAcquisitionRunnable".
+ * Implements the specifics of a PI scan including setting up its triggering, 
+ * but calls the general method {@link #acquireTriggeredDataset} (i.e. a trigger
+ * loop) which is defined in the Abstract class.
+ * @author Leo Rowe-Brown
  */
 public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
         private final int PIDeviceID;
-        
-        public PIScanRunnableInherited(dOPM_hostframe frame_ref, 
-                MDABridge acqProgressMgr){
-        super(frame_ref, acqProgressMgr);
+
+        public PIScanRunnableInherited(Studio mm,
+                DeviceSettingsManager deviceSettings,
+                MdaBridge acqProgressMgr){
+        super(mm, deviceSettings, acqProgressMgr);
         PIDeviceID = 1;
     }
     
@@ -104,7 +109,7 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
         
         // Create datastore
         Datastore store;
-        if (frame_.isSaveImgToDisk()){
+        if (saveToDisk){  // saveToDisk defined in AbstractAcquisitionRunnable
             try {
                 PropertyMap myPropertyMap = PropertyMaps.builder().
                     putString("scan type", "PI mirror scanning").
@@ -190,14 +195,14 @@ public class PIScanRunnableInherited extends AbstractAcquisitionRunnable{
                 try {
                     double freezeStart = System.currentTimeMillis();
                     store.freeze();
-                    if(frame_.isSaveImgToDisk()) store.close();
+                    if(saveToDisk) store.close();
                     runnableLogger.info(String.format("DS freezing time %.2f ms",
                             System.currentTimeMillis()-freezeStart));
                 } catch (IOException eio){
                     runnableLogger.severe("Couldn't freeze/close datastore");
                 }
             } else {
-                if(frame_.isSaveImgToDisk()) store.close();
+                if(saveToDisk) store.close();
                 runnableLogger.severe("Datastore empty");
             }
         }

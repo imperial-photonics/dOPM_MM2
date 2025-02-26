@@ -14,7 +14,7 @@ import dopm_mm2.util.MMStudioInstance;
 
 /** dOPM multi dimension acquisition plugin for MicroManager (2024)
  *
- *               ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+ *               ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀AWOOOOO⠀⠀
  *       ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⠁⠸⢳⡄⠀⠀⠀⠀⠀⠀⠀⠀
  *       ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⠃⠀⠀⢸⠸⠀⡠⣄⠀⠀⠀⠀⠀
  *       ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡠⠃⠀⠀⢠⣞⣀⡿⠀⠀⣧⠀⠀⠀⠀
@@ -54,9 +54,11 @@ public class dOPM_MM2 implements MenuPlugin, SciJavaPlugin{
     public void onPluginSelected() {
         //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         
-        // initialize singleton class of mmstudio that can be access from everywhere
+        // initialize singleton class of mmstudio so that static classes
+        // i.e. PIStage and TangoXYStage can access it
         MMStudioInstance.initialize(mm_);  
-        frame_ = new dOPM_hostframe();
+        mm_.logs().logMessage("Loaded dOPM plugin");
+        frame_ = new dOPM_hostframe(mm_);
         frame_.setVisible(true);
     }
 
@@ -81,13 +83,13 @@ public class dOPM_MM2 implements MenuPlugin, SciJavaPlugin{
     @Override
     public String getVersion() {
         //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        return("0.0.1");
+        return("0.2.0");
     }
 
     @Override
     public String getCopyright() {
         //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        return("Copyright Imperial College London (2020-2024)");
+        return("Copyright Imperial College London (2020-2025)");
     }
     
 }

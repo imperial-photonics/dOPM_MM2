@@ -5,6 +5,7 @@
 package dopm_mm2.GUI;
 
 /**
+ * !!!!!!NOT YET IMPLEMENTED!!!!!!
  * Intended to be used to load the necessary devices for the dOPM plugin
  * Will saves list(s) of device properties in a CSV format which is loaded by 
  * the main dOPM plugin inside dOPM_hostframe

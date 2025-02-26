@@ -11,12 +11,9 @@ import dopm_mm2.GUI.dOPM_hostframe;
 import dopm_mm2.util.FileMM;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
-import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import mmcorej.TaggedImage;
 import org.micromanager.PropertyMap;
@@ -30,9 +27,8 @@ import org.micromanager.data.Image;
 import org.micromanager.data.Metadata;
 import org.micromanager.data.SummaryMetadata;
 
-import dopm_mm2.acquisition.MDABridge;
+import dopm_mm2.acquisition.MdaBridge;
 import dopm_mm2.util.dialogBoxes;
-import loci.formats.meta.BaseMetadata;
 
 /** Abstract class for dOPM runnables, switching between views and calling 
  * runSingleView for each view.
@@ -44,15 +40,15 @@ import loci.formats.meta.BaseMetadata;
  */
 public abstract class AbstractAcquisitionRunnable implements Runnable {
     
-    protected final dOPM_hostframe frame_;
     protected final CMMCore core_;
     protected final Studio mm_;
     protected final DeviceSettingsManager deviceSettings;
-    protected final MDABridge currentAcq;
+    protected final MdaBridge currentAcq;
     protected double currentViewAngle;
     
     protected String settingsOutDir;
     protected String dataOutDir;
+    protected boolean saveToDisk;
     
     protected boolean errorWindowsDuringAcq;
 
@@ -82,6 +78,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     
     protected int maxDroppedFrames;
     protected boolean acquisitionFailed;  // sets true if acq gets error
+    protected Exception exception;  // current exception (if any)
     
     protected long endClockTimeMs;  // for estimating MDA's snap and overhead duration
 
@@ -90,16 +87,18 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     protected static final Logger runnableLogger = 
         Logger.getLogger(MDARunnable.class.getName());
        
-    public AbstractAcquisitionRunnable(dOPM_hostframe frame_ref, 
-            MDABridge acqProgressMgr) {
-        frame_ = frame_ref;  // consider changing dependency to just deviceSettings
-        mm_ = dOPM_hostframe.mm_;
-        core_ = mm_.getCMMCore();
-        deviceSettings = frame_.getDeviceSettings();
-        currentAcq = acqProgressMgr;
+    public AbstractAcquisitionRunnable(Studio mm, 
+            DeviceSettingsManager deviceSettings,
+            MdaBridge acqProgressMgr) {
+        this.mm_ = mm;
+        this.core_ = mm_.getCMMCore();
+        this.deviceSettings = deviceSettings;
+        this.currentAcq = acqProgressMgr;
         
         errorWindowsDuringAcq = true;
         maxDroppedFrames = 0;
+        
+        exception = null;
         
         // device variables
         camName = deviceSettings.getdOPMCameraName();
@@ -124,6 +123,22 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         endClockTimeMs = 0;
     }
     
+    /* FUTURE ZONE -- retries idea
+    @Override
+    public void run(){
+        while(try<maxTries){
+            runOneTry();  // rename current "run()" to runOneTry();
+            try++
+            cleanupAcq();
+        } if (try >= maxTries){
+            abortAcquisition();  // the currenty ones will be removed + put here
+            logErrorWindow(getException());
+        }
+    
+    */
+    
+    // run() is implemented by the Runnable interface. @Override indicates
+    // this method overrides the default
     @Override
     public void run(){
         runnableLogger.info("In runnable's run()");
@@ -138,8 +153,9 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         } catch (Exception e){
             String msg = "Failed to wait for devices before "
                     + "acquisition with " + e.toString();
-            runnableLogger.severe(msg);
             logErrorWithWindow(e);
+            abortAcquisition();
+            return;
             // Thread.sleep(10000);
         }
         long start = System.currentTimeMillis();           
@@ -157,6 +173,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                     "Failed to set camera trigger settings and enable external"
                     + "triggering with error %s",
                     e.getMessage()));
+                abortAcquisition();
+                return;
             }
         }
         try {
@@ -166,6 +184,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             logErrorWithWindow(String.format(
                     "Failed to set PI trigger to low with error %s",
                     e.getMessage()));
+            abortAcquisition();
+            return;
         }
         
         runnableLogger.info(String.format("Runnable setup inside run took %d ms", 
@@ -187,8 +207,9 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             try { 
                 currentAcq.setCurrentView(1);
             } catch (Exception e){
-                runnableLogger.severe("Failed to change to view 1 with " + e.toString()
+                logErrorWithWindow("Failed to change to view 1 with " + e.toString()
                         + " check config dOPM View exists with preset View 1");
+                abortAcquisition();
                 return;
             }
             // I think hugh would do 0 and 90 instead of -45 and 45, check
@@ -199,7 +220,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 runSingleView(currentViewAngle);
             } catch (Exception e){
                 logErrorWithWindow(e);
-                
+                abortAcquisition();
+                return;  // to end runnable early
             } finally {
                 cleanupAcq();
                 setStagePositionsToStart();
@@ -220,6 +242,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
             } catch (Exception e){
                 runnableLogger.severe("Failed to change to view 2 with " + e.toString()
                         + "check config dOPM View exists with preset View 2");
+                logErrorWithWindow(e);
+                abortAcquisition();
             }
             currentViewAngle = deviceSettings.getOpmAngle();
             try {
@@ -227,6 +251,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 runSingleView(currentViewAngle);
             } catch (Exception e){
                 logErrorWithWindow(e);
+                abortAcquisition();
+                return;
             } finally {
                 cleanupAcq();
                 setStagePositionsToStart();
@@ -244,12 +270,11 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         } catch (Exception e){
             logErrorWithWindow("Failed to switch camera to internal triggering "
                     + "with " + e.getMessage());
+            return;
         }
         
         // Update the MDA indices, IMPORTANT FOR FILE SAVING/METADATA!
-        if (currentAcq!=null){  // should never be null, i removed the ability for that
-            currentAcq.nextAcqPoint();
-        }
+        currentAcq.nextAcqPoint();
         
         runnableLogger.info(String.format(
                 "Full acquisition in runnable %s took %d ms", 
@@ -257,29 +282,21 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 System.currentTimeMillis()-start));
         endClockTimeMs = System.currentTimeMillis();
     }
+    ///////////////////////////////////////////////////////////////////////////
     
     public void runSingleView(double currentViewAngle) throws Exception{
         // MAIN BODY OF CODE GOES HERE, use @Override
     }
 
+    ////// Cleanups and things ////////////////////////////////////////////////
     
-    protected void logErrorWithWindow(Exception e){
-        String msg = e.toString();
-        logErrorWithWindow(msg);
-    }
-    
-    protected void logErrorWithWindow(String msg){
-        runnableLogger.severe(msg);
+    protected void abortAcquisition(){
+        setAcquisitionFailed(true);
         mm_.acquisitions().abortAcquisition();
         mm_.acquisitions().isAcquisitionRunning();
         mm_.acquisitions().clearRunnables();
-        
-        // cleanupAcq();
-        // setStagePositionsToStart();
-        
-        acquisitionFailed = true;
-        if (errorWindowsDuringAcq) dialogBoxes.acquisitionErrorWindow(msg);
-        
+        cleanupAcq();
+        switchOffLasers();
     }
     
     protected void storeStageStartingPositions() throws Exception{
@@ -315,7 +332,6 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         }
     }
     
-    // perhaps a little redundant atm
     protected void cleanupAcq(){
         long start = System.currentTimeMillis();
         try {
@@ -334,8 +350,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 System.currentTimeMillis()-start));
     }
     
-    /** Reset stage positions and change them to the travel speed (fast)
-     * 
+    /** 
+     * Reset stage positions and change them to the travel speed (fast)
      */
     protected void setStagePositionsToStart(){
         long start = System.currentTimeMillis();
@@ -371,22 +387,22 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 (System.currentTimeMillis() - start)));
     }
     
-    /** Switches back to internal triggering: A bit pointless but just to keep 
-     * everything consistent */
+    /** 
+     * Switches back to internal triggering: A bit pointless but just to keep 
+     * everything consistent 
+     * @throws Exception if setting camera internal triggering fails (in core)
+     */
     protected void stopCameraTriggering() throws Exception{
         core_.setProperty(camName, "TRIGGER SOURCE","INTERNAL");
     }
     
+    // TODO supply a single property map instead of two separate?
+    // Currently each call of createDatastore needs 
+
+    /////// Datastore and acquisition methods //////////////////////////////////
     
-    // TODO overall the createDatastores to only receive propertyMap and just
-    // parse the fields of that. e.g. propertyMap contains zStepUm and gets 
-    // read into the summaryMetadata
     /**
-     * Empty summaryMetadata, but supply custom PropertyMap
-     * @param customPropertyMap propertyMap that gets built into summary metadata
-     * @return empty datastore
-     * @throws IOException
-     * @throws Exception 
+     * Overloaded version of {@link #createDatastore(SummaryMetadata, PropertyMap)}
      */
     protected Datastore createDatastore(PropertyMap customPropertyMap) 
             throws IOException, Exception {
@@ -394,19 +410,8 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
                 customPropertyMap);
     }
     
-    /**
-     * Empty property map, but supply summary metadata *
-     * @param metadata summary metadata to put in datastore
-     * @return empty datastore with summary metadata
-     * @throws IOException
-     * @throws Exception 
-     */
-    protected Datastore createDatastore(SummaryMetadata metadata) 
-            throws IOException, Exception {
-        return createDatastore(metadata, PropertyMaps.builder().build());
-    }
-    
-    /** Create datastore for acquisition using the supplied data save path,
+    /** 
+     * Create datastore for acquisition using the supplied data save path,
      * filename will be MMStack.
      * @param customPropertyMap property map to be created in runSingleView,
      *   use PropertyMaps.builder to build the property map that has e.g. 
@@ -415,6 +420,7 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
      *   saved, optional
      * @return the empty datastore with metadata
      * @throws IOException if datastore creation fails (in FileMM)
+     * @throws Exception unknown exception
      */
     protected Datastore createDatastore(SummaryMetadata metadata, 
             PropertyMap customPropertyMap) throws IOException, Exception{
@@ -427,22 +433,15 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         // get file name based on position in MDA. consider using device 
         // settings to save into filename laser, power, exposure, filter and 
         // then the currentAcq just for time, position, z scan plane (if used)
-        if (currentAcq!=null){
-            stackDirName = String.format("dOPM_t%04d_p%04d_z%04d_c%04d_view%d", 
-                    currentAcq.getCurrentAcqTimeIdx(),
-                    currentAcq.getCurrentAcqPositionIdx(),
-                    currentAcq.getCurrentAcqZIdx(),
-                    currentAcq.getCurrentAcqChannelIdx(),
-                    currentAcq.getCurrentView()
-                );    
-        } else{
-            int i=0;
-            while(new File(dataOutDir, 
-                    String.format("MMStack_n%04d", i)).exists()){
-                i++;
-            }
-            stackDirName = (String.format("MMStack_n%04d", i));
-        }
+
+        stackDirName = String.format("dOPM_t%04d_p%04d_z%04d_c%04d_view%d_%s", 
+                currentAcq.getCurrentAcqTimeIdx(),
+                currentAcq.getCurrentAcqPositionIdx(),
+                currentAcq.getCurrentAcqZIdx(),
+                currentAcq.getCurrentAcqChannelIdx(),
+                currentAcq.getCurrentView(),
+                currentAcq.getCurrentAcqPositionLabel()  // new 24/02/2025
+            );    
         
         String dataSavePath = (new File(dataOutDir, stackDirName)).getAbsolutePath();
         
@@ -463,26 +462,6 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
         try {
             // Get my MDABridge metadata
             // possibly redudant, this was just used to save file
-            
-            runnableLogger.info("Getting more metadata");
-                       
-            runnableLogger.info("angle " + currentViewAngle);
-            runnableLogger.info("filter " + deviceSettings.getCurrentFilter());
-            runnableLogger.info("laser " + deviceSettings.getCurrentLaser());
-            runnableLogger.info("power " + deviceSettings.getCurrentLaserPower());
-            runnableLogger.info("exposureMs " + core_.getExposure()); 
-            
-            runnableLogger.info("positionLabel " + currentAcq.getCurrentAcqPositionLabel());
-            runnableLogger.info("positionIdx " + currentAcq.getCurrentAcqPositionIdx());
-            runnableLogger.info("channelGroup " + currentAcq.getCurrentAcqChannel().channelGroup());
-            runnableLogger.info("channelIdx " + currentAcq.getCurrentAcqChannelIdx());
-            
-            runnableLogger.info("zSlice " + currentAcq.getCurrentAcqZ());
-            runnableLogger.info("zSliceIdx " + currentAcq.getCurrentAcqZIdx());
-            runnableLogger.info("time ms " + currentAcq.getCurrentAcqTime());
-            runnableLogger.info("time mins " + currentAcq.getCurrentAcqTime());
-            runnableLogger.info("timeIdx" + currentAcq.getCurrentAcqTimeIdx());
-
 
             myPropertyMap = PropertyMaps.builder().
                 putDouble("angle", currentViewAngle).
@@ -523,10 +502,11 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
     
     /**
      * Loop to grab frames from a camera that is being hardware triggered
-     * @param store
-     * @param nFramesTotal
-     * @return
-     * @throws Exception 
+     * @param store Datastore to save to (created by {@link #createDatastore})
+     * @param nFramesTotal number of expected frames to acquire
+     * @return same Datastore object but full of acquired frames
+     * @throws TimeoutException if frames are dropped
+     * @throws Exception unknown exception
      */
     protected Datastore acquireTriggeredDataset(
             Datastore store, int nFramesTotal) 
@@ -623,4 +603,62 @@ public abstract class AbstractAcquisitionRunnable implements Runnable {
 
         return store;
     }
+    
+    //////// Error handling ///////////////////////////////////////////////////
+    
+    /**
+     * Log an error, create a dialogue box and set the current stored exception
+     * @param e exception to log/store
+     */
+    protected void logErrorWithWindow(Exception e){
+        runnableLogger.severe(e.toString());
+        setException(e);
+        if (errorWindowsDuringAcq) dialogBoxes.acquisitionErrorWindow(e);
+    }
+    
+    /**
+     * Log an error, create a dialogue box and set the current stored exception
+     * @param msg exception string to log/store
+     */
+    protected void logErrorWithWindow(String msg){
+        runnableLogger.severe(msg);
+        setException(new Exception(msg));
+        if (errorWindowsDuringAcq) dialogBoxes.acquisitionErrorWindow(msg);
+    }
+    
+    /**
+     * Log an error and set the current stored exception (no dialogue box)
+     * @param e exception to log/store
+     */
+    protected void logError(Exception e){
+        runnableLogger.severe(e.toString());
+        setException(e);
+    }
+    /**
+     * Log an error and set the current stored exception (no dialogue box)
+     * @param msg exception string to log/store
+     */
+    protected void logError(String msg){
+        runnableLogger.severe(msg);
+        setException(new Exception(msg));
+    }
+    
+    /////// Getters and setters ////////////////////////////////////////////////
+    public boolean isAcquisitionFailed() {
+        return acquisitionFailed;
+    }
+
+    public void setAcquisitionFailed(boolean acquisitionFailed) {
+        this.acquisitionFailed = acquisitionFailed;
+    }
+
+    public Exception getException() {
+        return exception;
+    }
+
+    public void setException(Exception exception) {
+        this.exception = exception;
+    }
+    
+    
 }

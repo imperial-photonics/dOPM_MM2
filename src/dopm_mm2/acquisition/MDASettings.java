@@ -29,13 +29,13 @@ import java.util.Set;
  *
  * @author Leo Rowe-Brown
  */
-public class MDASettings {
+public class MdaSettings {
     private final CMMCore core_;
     private final Studio mm_;
     SequenceSettings mdaSettings;
     
     private static final Logger acquisitionSettingsLogger = 
-            Logger.getLogger(MDASettings.class.getName());
+            Logger.getLogger(MdaSettings.class.getName());
         
     private final int acqOrderMode;
     // private final List<String> positionLabels;
@@ -71,7 +71,7 @@ public class MDASettings {
      * @param mm MMStudio instance
      * @throws Exception 
      */
-    public MDASettings(Studio mm) throws Exception {
+    public MdaSettings(Studio mm) throws Exception {
         // get MDA settings
         mm_ = mm;
         core_ = mm.getCMMCore();
@@ -326,6 +326,14 @@ public class MDASettings {
 
     public List<String> getChannelNames() {
         return channelNames;
+    }
+
+    public List<ChannelSpec> getChannelSpecs() {
+        return channelSpecs;
+    }
+
+    public List<MultiStagePosition> getMultiStagePositions() {
+        return multiStagePositions;
     }
 
     public List<Double> getzSlices() {

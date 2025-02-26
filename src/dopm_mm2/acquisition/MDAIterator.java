@@ -17,13 +17,13 @@ import org.micromanager.acquisition.ChannelSpec;
  *
  * @author OPMuser
  */
-public class MDAIterator {
-    private final MDASettings mda;
+public class MdaIterator {
+    private final MdaSettings mda;
     private final Studio mm_;
     private final CMMCore core_;
     
     private static final Logger mdaIteratorLogger = 
-        Logger.getLogger(MDASettings.class.getName());
+        Logger.getLogger(MdaSettings.class.getName());
         
     private int currentMDAAcqIdx;
     private int totalMDAAcqPts;
@@ -36,8 +36,8 @@ public class MDAIterator {
     private int nZPts;
     private int nTimePts;
     
-    public MDAIterator(Studio mm) throws Exception {
-        mda = new MDASettings(mm);
+    public MdaIterator(Studio mm) throws Exception {
+        mda = new MdaSettings(mm);
         mm_ = mm;
         core_ = mm.getCMMCore();
         

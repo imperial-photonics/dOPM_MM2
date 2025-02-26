@@ -4,12 +4,8 @@
  */
 package dopm_mm2.Devices;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.File;
 import java.io.IOException;
 import java.beans.XMLEncoder;
 import java.util.*;
@@ -125,20 +121,21 @@ public class DeviceSettingsManager {
     public CMMCore core_ = null;
     public Studio mm_ = null;
     
-    public DeviceSettingsManager(){
-        core_ = MMStudioInstance.getCore();
-        mm_ = MMStudioInstance.getStudio();
-        initVars();
-    }
-    
-    /** Constructor with CMMCore instance injected, prefer to use empty parameter version now
+    /** 
+     * Constructor with CMMCore instance injected
      *
-     * @param cmmcore 
+     * @param mm MicroManager Studio object {@link Studio}, 
+     * interface to execute commands in the main panel (sorry, Hugh, no javadoc).
+     * MicroManager core object obtained from mm via {@link Studio#getCMMCore()}
      */
-    public DeviceSettingsManager(CMMCore cmmcore) {
-        core_ = cmmcore;
-        mm_ = MMStudioInstance.getStudio();
+    public DeviceSettingsManager(Studio mm) {
+        mm.logs().logMessage("In DeviceSettingsManager");
+        this.core_ = mm.getCMMCore();  // java bridge to C++ core 
+        this.mm_ = mm;
+        mm.logs().logMessage("Got core and stuff");
+        deviceManagerLogger.info("About to initVars()");
         initVars();
+        deviceManagerLogger.info("About to load device names");
         loadAllDeviceNames();  // uMgr StrVector object
     }
     
@@ -148,7 +145,7 @@ public class DeviceSettingsManager {
         z_lim = new int[]{-12000000,1000000};
         
         // we haven't decided whether we change lasr powers through USB device 
-        // interface or modulate with DO/AO lines, so keep these variables
+        // interface or modulate with DO/AO lines, so keep AO port variables
         laserDeviceNames = new ArrayList<>();
         laserBlankingDOLines = new ArrayList<>();
         laserPowerAOports = new ArrayList<>();
@@ -208,7 +205,6 @@ public class DeviceSettingsManager {
         exposureTime = 5.0;
         actualExposureTime = 5.0;
         frameSize = new Rectangle(0, 0, 2304, 2304);  // Initialized to null
-        
     }
     
     // Not really used. To remove?
@@ -220,16 +216,21 @@ public class DeviceSettingsManager {
         e.close();
     }
     
+    /**
+     * Get loaded devices and store the StrVector with {@link setDeviceList}
+     * @see mmcorej.StrVector
+     */
     private void loadAllDeviceNames(){
-        setDeviceList(core_.getLoadedDevices());
+        StrVector loadedDevices = core_.getLoadedDevices();
+        setDeviceList(core_.getLoadedDevices());        
     }
     
-    /** Loads device names (name in micromanager config) from CSV.
-        The idea is to use a GUI to pick the devices from the list, and then
-        the GUI interface allows you to save to CSV.
-        * @param configDetailsJson Filename of config file, json file
+    /**
+     * Loads device names (name in micromanager config) from CSV. The future
+     * idea is to use a GUI to pick the devices from the list, and then the GUI 
+     * interface allows you to save to CSV.
+     * @param configDetailsJson 
      */
-    
     public void loadSystemSettings(String configDetailsJson){
 
         List<String> expectedKeys = Arrays.asList(new String[]{
@@ -255,33 +256,38 @@ public class DeviceSettingsManager {
         // my config parser class in util
         try {
             ConfigParser configParser = 
-                    new ConfigParser(configDetailsJson, expectedKeys);
-            configParser.parse();
-            HashMap<String, List<String>> configMap = configParser.getConfigMap();
-
+                    new ConfigParser(configDetailsJson);
+            HashMap<String, List<String>> configMap = 
+                    configParser.getMap(expectedKeys);
+                        
             // device names, ports, etc.
+            deviceManagerLogger.info("setting camera name");
             setdOPMCameraName(
                     configMap.get("camera_dopm"));
-            setLaserLabels(configMap.get("laser_labels"));
+            // deprecated: setLaserLabels(configMap.get("laser_labels"));
+            deviceManagerLogger.info("setting blanking port name");
             setLaserBlankingDOport(
                     configMap.get("laser_daq_do_port"));
+            deviceManagerLogger.info("setting blanking lines");
             setLaserBlankingDOLines(
                     configMap.get("laser_daq_blanking_lines"));
+            deviceManagerLogger.info("setting ao port");
             setLaserPowerAOports(
                     configMap.get("laser_daq_ao_port"));
+            deviceManagerLogger.info("setting filter device");
             setFilterDeviceName(configMap.get("filter"));
+            deviceManagerLogger.info("setting xy stage device");
             setXyStageName(configMap.get("xy_stage"));
+            deviceManagerLogger.info("setting z stage device");
             setZStageName(configMap.get("z_stage"));
+            deviceManagerLogger.info("setting mirror stage device");
             setMirrorStageName(configMap.get("mirror_stage"));
 
-            List<String> xystagecom = configMap.get("xy_stage_com_port");
-
+            deviceManagerLogger.info("setting stage com ports");
             setXyStageComPort(configMap.get("xy_stage_com_port"));
             setMirrorStageComPort(
                     configMap.get("mirror_stage_com_port"));
-            
             setZStageComPort(configMap.get("z_stage_com_port"));
-            deviceManagerLogger.info("set z stage com port");
             
             // scope values/constants, have to access the Double itself in the
             // list with .get(0) to convert the string to double.
@@ -294,7 +300,7 @@ public class DeviceSettingsManager {
             setMagnification(Double.parseDouble(
                     configMap.get("magnification").get(0)));
 
-            deviceManagerLogger.info("Set devices with setters");
+            deviceManagerLogger.info("Successfully set dOPM device properties");
         } catch (Exception ex){
             deviceManagerLogger.warning(ex.toString());
             JOptionPane.showMessageDialog(null,
@@ -419,7 +425,15 @@ public class DeviceSettingsManager {
         }
         return power;
     }
-            
+          
+    public double getExposureTime(){
+        try {
+            return core_.getExposure();
+        } catch (Exception e){
+            deviceManagerLogger.severe("Failed to get exposure time " + e.toString());
+            return 0;
+        }
+    }
     
     public double getCameraReadoutTime() throws Exception{
        return getCameraReadoutTime(core_.getExposure());
@@ -679,57 +693,19 @@ public class DeviceSettingsManager {
         deviceManagerLogger.info("globalMaxScanSpeed: " + globalMaxMirrorScanSpeed);
         maxGlobalTriggeredMirrorScanSpeed = globalMaxMirrorScanSpeed;
     }
-
-    // I think the following are not used, this is handled by MDA -----
-    // <--------
-    public List<String> getLaserLabels() {
-        return laserLabels;
-    }
-
-    public void setLaserLabels(List<String> laserLabels) {
-        this.laserLabels = laserLabels;
-        deviceManagerLogger.info("set laser labels to " + laserLabels);
-    }
-    
-    
-    public List<String> getLaserChannelsAcq() {
-        return laserChannelsAcq;
-    }
-
-    public void setLaserChannelsAcq(List<String> laserChannels) {
-        this.laserChannelsAcq = laserChannels;
-    }
-
-    public List<String> getLaserPowersAcq() {
-        return laserPowersAcq;
-    }
-
-    public void setLaserPowersAcq(List<String> laserPowers) {
-        this.laserPowersAcq = laserPowers;
-    }
-
-    public List<String> getFiltersAcq() {
-        return filtersAcq;
-    }
-
-    public void setFiltersAcq(List<String> filters) {
-        this.filtersAcq = filters;
-    }
-    // ending section of unused code (TODO remove, Hugh)
-    // -->
     
 
     public double lateralScanToMirrorNormal(double lateral){
-        return 2*lateral*Math.sin(0.5*getOpmAngle()*Math.PI/180)/getImmersionRI();
+        return lateral*Math.sin(getOpmAngle()*Math.PI/180)/getImmersionRI();
     }
     /**
      * Convert from user inputted PI mirror scan length (in z') to actual PI 
-     * scan direction. TODO update this formula to Hugh's
+     * scan direction. Should now be Hugh's formula (24/02/2025)
      * @param normal scan direction in direction normal to oblique image planes
-     * @return 
+     * @return a distance in the mirror normal direction
      */
     public double mirrorNormaltoLateralScan(double normal){
-        return normal*getImmersionRI()/(2*Math.sin(0.5*getOpmAngle()*Math.PI/180));
+        return normal*getImmersionRI()/(Math.sin(getOpmAngle()*Math.PI/180));
     }
     
     public double lateralScanToLabZ(double lateral){
@@ -755,7 +731,8 @@ public class DeviceSettingsManager {
         return mirrorTriggerDistance;
     }
 
-    /** Trigger distance setter, in um 
+    /** 
+     * Trigger distance setter, in um 
      * @param mirrorTriggerDistance trigger distance in um */
     public void setMirrorTriggerDistance(double mirrorTriggerDistance) {
         this.mirrorTriggerDistance = mirrorTriggerDistance;
@@ -933,7 +910,8 @@ public class DeviceSettingsManager {
             deviceManagerLogger.info("Set mirror stage device name to " 
                     + mirrorStageName);
             // try to automatically get COM port
-            /* Having issues here, commenting out for now
+            /* PIZStage cna't get port property (but controller can), 
+            commenting out for now:
             deviceManagerLogger.info("getting mirror stage COM port automatically");
             String port = getPortProperty(mirrorStageName);
             deviceManagerLogger.info("port from MM is " + port);
@@ -980,17 +958,7 @@ public class DeviceSettingsManager {
     public String getMirrorStageComPort() {
         return mirrorStageComPort;
     }
-    
-    /* e.g... TODO REMOVE
-    public void setXyStageComPort(List<String> xyStageComPort) {
-        if (xyStageComPort != null){
-            setXyStageComPort(xyStageComPort.get(0));
-        }
-    }
-    
-    public void setXyStageComPort(String xyStageComPort) {
-        if (!xyStageComPort.equals("")) this.xyStageComPort = xyStageComPort;
-    }*/
+
     
     public void setMirrorStageComPort(List<String> mirrorStageComPort) {
         if (!mirrorStageComPort.isEmpty()){
@@ -1120,24 +1088,6 @@ public class DeviceSettingsManager {
         deviceManagerLogger.info("does it equal '' " + zStageComPort.equals(""));
         if (!zStageComPort.equals("")) this.zStageComPort = zStageComPort;
     }
-
-    // NOT IN USE, USE INTERNAL EXPOSURE TIME IN MMCore INSTEAD
-    // --------------------------------------------------------
-    public double getExposureTime() {
-        return exposureTime;
-    }
-
-    public void setExposureTime(double exposureTime) {
-        this.exposureTime = exposureTime;
-        deviceManagerLogger.info("Set exposureTime to " + exposureTime);
-        updateMaxTriggeredMirrorScanSpeed();
-        updateMaxTriggeredXyScanSpeed();
-    }
-
-    public double getActualExposureTime() {
-        return actualExposureTime;
-    }
-    // --------------------------------------------------------
     
     public Rectangle getFrameSize() {
         return frameSize;

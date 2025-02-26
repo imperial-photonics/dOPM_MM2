@@ -36,12 +36,12 @@ import org.micromanager.PropertyMaps;
  *
  * @author OPMuser
  */
-public class MDABridge {
+public class MdaBridge {
     private final CMMCore core_;
     private final Studio mm_;
     SequenceSettings mdaSettings;
     
-    private static final Logger acquisitionBridgeLogger = Logger.getLogger(MDABridge.class.getName());
+    private static final Logger acquisitionBridgeLogger = Logger.getLogger(MdaBridge.class.getName());
         
     private final int acqOrderMode;
     // private final List<String> positionLabels;
@@ -93,7 +93,7 @@ public class MDABridge {
      * 
      * @throws Exception 
      */
-    public MDABridge() throws Exception {
+    public MdaBridge() throws Exception {
         // get MDA settings
         core_ = MMStudioInstance.getCore();
         mm_ = MMStudioInstance.getStudio();
