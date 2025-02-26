@@ -10,6 +10,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import mmcorej.CMMCore;
+import org.micromanager.Studio;
 
 /** Static class to control Marzhauser XY stange with Tango, mostly for 
  * triggering with the ASCII API
@@ -20,14 +21,29 @@ public class TangoXYStage {
     private static final Logger tangoXYLogger
         = Logger.getLogger(TangoXYStage.class.getName());
     
+    private static Studio mm_;
+    private static CMMCore core_;
+    
+    /**
+     * Initializer to get hold of the microManager core object
+     * @param mm Studio object associated with running instance of MM
+     */
+    public static void initialize(Studio mm) {
+        if (mm_ == null) {
+            mm_ = mm;
+            core_ = mm.getCMMCore();
+        } else {
+            throw new IllegalStateException("Core has already been initialized.");
+        }
+    }
     // Constructor
     public void TangoXYStage() {
     }
     
     public static String getTangoErrorMsg(String port) throws Exception{
         try {
-            MMStudioInstance.getCore().setSerialPortCommand(port, "err", "\r");
-            return MMStudioInstance.getCore().getSerialPortAnswer(port, "\r");
+            core_.setSerialPortCommand(port, "err", "\r");
+            return core_.getSerialPortAnswer(port, "\r");
         } catch (Exception e){
             tangoXYLogger.severe(String.format(
                     "Failed to get Tango error with: %s", e.getMessage()));
@@ -58,20 +74,20 @@ public class TangoXYStage {
         try {
             // does this wait for device, or polls? do i need a 
             // wait for device here?
-            MMStudioInstance.getCore().waitForDevice(device);
+            core_.waitForDevice(device);
             // customWaitForStage(device);
-            double posXStart = MMStudioInstance.getCore().getXPosition(device);
-            double posYStart = MMStudioInstance.getCore().getYPosition(device);
+            double posXStart = core_.getXPosition(device);
+            double posYStart = core_.getYPosition(device);
             
             switch (axis){
                 case "x":
-                    MMStudioInstance.getCore().setXYPosition(
+                    core_.setXYPosition(
                             device, position, posYStart);
                     tangoXYLogger.info(String.format("Set %s position to "
                             + "%.2f um", axis, position));
                     break;
                 case "y":
-                    MMStudioInstance.getCore().setXYPosition(
+                    core_.setXYPosition(
                             device, posXStart, position);
                     tangoXYLogger.info(String.format("Set %s position to "
                             + "%.2f um", axis, position));
@@ -90,7 +106,7 @@ public class TangoXYStage {
     
     
     private static void customWaitForStage(String device) throws Exception{
-        String port = MMStudioInstance.getCore().getProperty(device, "Port");
+        String port = core_.getProperty(device, "Port");
         customWaitForPort(port);
     }
     
@@ -99,11 +115,11 @@ public class TangoXYStage {
         long timeout = 10000;
         int intvlMs = 10;
         int waitedMs = 0;
-        MMStudioInstance.getCore().setSerialPortCommand(port, "?statusaxis", "\r");
-        String ans = MMStudioInstance.getCore().getSerialPortAnswer(port, "\r");
+        core_.setSerialPortCommand(port, "?statusaxis", "\r");
+        String ans = core_.getSerialPortAnswer(port, "\r");
         while(!ans.equals("JJ--.-") && waitedMs < timeout){
             Thread.sleep(intvlMs);
-            MMStudioInstance.getCore().setSerialPortCommand(port, "?statusaxis", "\r");
+            core_.setSerialPortCommand(port, "?statusaxis", "\r");
             waitedMs += intvlMs;
         } 
         if (waitedMs < timeout){
@@ -124,10 +140,10 @@ public class TangoXYStage {
             String device, double x, double y) throws Exception {
         try {
             long start = System.currentTimeMillis();
-            MMStudioInstance.getCore().waitForDevice(device);
+            core_.waitForDevice(device);
             tangoXYLogger.info(String.format("waited %d ms for %s",
                     System.currentTimeMillis()-start, device));
-            MMStudioInstance.getCore().setXYPosition(
+            core_.setXYPosition(
                             device, x, y);
             tangoXYLogger.info(String.format("Set position to "
                             + "(%.2f, %.2f) um (x,y)", x, y));
@@ -163,10 +179,10 @@ public class TangoXYStage {
             double speed) throws Exception{
         switch(axis){
             case "x":
-                MMStudioInstance.getCore().setProperty(device, "SpeedX [mm/s]", speed);
+                core_.setProperty(device, "SpeedX [mm/s]", speed);
                 break;
             case "y":
-                MMStudioInstance.getCore().setProperty(device, "SpeedY [mm/s]", speed);
+                core_.setProperty(device, "SpeedY [mm/s]", speed);
                 break;
             default:
                 throw new IllegalArgumentException("Invalid axis, use x or y"); 
@@ -182,9 +198,9 @@ public class TangoXYStage {
     public static double[] getTangoXySpeed(String device) throws Exception{
         double[] speeds = new double[2];
         speeds[0] = Double.parseDouble(
-                MMStudioInstance.getCore().getProperty(device, "SpeedX [mm/s]"));
+                core_.getProperty(device, "SpeedX [mm/s]"));
         speeds[1] = Double.parseDouble(
-                MMStudioInstance.getCore().getProperty(device, "SpeedY [mm/s]"));
+                core_.getProperty(device, "SpeedY [mm/s]"));
         return speeds;
     }
     
@@ -199,7 +215,7 @@ public class TangoXYStage {
         double posX = position[0]*1e3;
         double posY = position[1]*1e3;
         try {
-            MMStudioInstance.getCore().setXYPosition(device, posX, posY);
+            core_.setXYPosition(device, posX, posY);
             tangoXYLogger.info(String.format(
                     "Set %s position to (%.4f,%.4f) mm",device, posX, posY));
         } catch (Exception e){
@@ -282,7 +298,7 @@ public class TangoXYStage {
             double[] desiredTriggerRange) throws Exception {
         long start_ = System.currentTimeMillis();
         setTangoXyUnitsToUm(port); 
-        MMStudioInstance.getCore().setSerialPortCommand(
+        core_.setSerialPortCommand(
                 port, "?trigd " + axis, "\r");
         // in mm
         
@@ -290,7 +306,7 @@ public class TangoXYStage {
         // perhaps I should wait for device it might still be moving and 
         // querying the stage position
         customWaitForPort(port);
-        double triggerDist = Double.parseDouble(MMStudioInstance.getCore().
+        double triggerDist = Double.parseDouble(core_.
                 getSerialPortAnswer(port, "\r"));
         tangoXYLogger.info("got trigger distance as " + triggerDist);
         
@@ -358,18 +374,15 @@ public class TangoXYStage {
         boolean isSet = false;
         String ERR;
         
-        // define locally for reuse
-        CMMCore core = MMStudioInstance.getCore();
-
         int i = 0;
         do {
             try {
                 tangoXYLogger.info(String.format(
                         "Sending serial command %s to %s", msg, port));
-                core.setSerialPortCommand(port, msg, "\r");
+                core_.setSerialPortCommand(port, msg, "\r");
                 // check for errors
-                core.setSerialPortCommand(port, errCmd, "\r");
-                ERR = core.getSerialPortAnswer(port, "\r");
+                core_.setSerialPortCommand(port, errCmd, "\r");
+                ERR = core_.getSerialPortAnswer(port, "\r");
                 if (!ERR.equals("0")) {
                     String errMsg = String.format(
                             "Error code %1$s in Tango from err after sending "
@@ -378,8 +391,8 @@ public class TangoXYStage {
                     throw new Exception(errMsg);
                 }
                 // check if set correctly
-                core.setSerialPortCommand(port, queryMsg, "\r");
-                answer = core.getSerialPortAnswer(port, "\r");
+                core_.setSerialPortCommand(port, queryMsg, "\r");
+                answer = core_.getSerialPortAnswer(port, "\r");
                 tangoXYLogger.info(String.format(
                         "Received answer %s from %s", answer, port));
                 

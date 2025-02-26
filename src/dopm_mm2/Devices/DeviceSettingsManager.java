@@ -54,7 +54,7 @@ public class DeviceSettingsManager {
 
     private List<Object> laserDAQdevices;
     // Trigger settings
-    private int scanType = MIRROR_SCAN;
+    private int scanType = YSTAGE_SCAN;
     
     private double xyStageScanLength;  // um
     private double xyStageTriggerDistance;  // um

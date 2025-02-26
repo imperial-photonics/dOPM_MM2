@@ -324,28 +324,31 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         scanLengthLabel1.setText("Z' scan length (µm)");
         scanLengthLabel1.setToolTipText("Scan length in z' (normal to imaged plane direction)");
-        scanLengthLabel1.setMaximumSize(new java.awt.Dimension(120, 16));
-        scanLengthLabel1.setMinimumSize(new java.awt.Dimension(120, 16));
-        scanLengthLabel1.setPreferredSize(new java.awt.Dimension(120, 16));
+        scanLengthLabel1.setMaximumSize(new java.awt.Dimension(120, 22));
+        scanLengthLabel1.setMinimumSize(new java.awt.Dimension(120, 22));
+        scanLengthLabel1.setPreferredSize(new java.awt.Dimension(120, 22));
 
         scanIntervalLabel1.setText("Z' scan interval (µm)");
-        scanIntervalLabel1.setMaximumSize(new java.awt.Dimension(120, 16));
-        scanIntervalLabel1.setMinimumSize(new java.awt.Dimension(120, 16));
-        scanIntervalLabel1.setPreferredSize(new java.awt.Dimension(120, 16));
+        scanIntervalLabel1.setMaximumSize(new java.awt.Dimension(120, 22));
+        scanIntervalLabel1.setMinimumSize(new java.awt.Dimension(120, 22));
+        scanIntervalLabel1.setPreferredSize(new java.awt.Dimension(120, 22));
 
         scanSpeedLabel1.setText("Scan speed (µm/ms)");
         scanSpeedLabel1.setToolTipText("Set a \"global\" scan speed for all channels, ticking Max will ignore this. Speed is physical PI stage lateral scan speed.");
-        scanSpeedLabel1.setMaximumSize(new java.awt.Dimension(120, 16));
-        scanSpeedLabel1.setMinimumSize(new java.awt.Dimension(120, 16));
-        scanSpeedLabel1.setPreferredSize(new java.awt.Dimension(120, 16));
+        scanSpeedLabel1.setMaximumSize(new java.awt.Dimension(120, 22));
+        scanSpeedLabel1.setMinimumSize(new java.awt.Dimension(120, 22));
+        scanSpeedLabel1.setPreferredSize(new java.awt.Dimension(120, 22));
 
         fracOfMaxMirrorLabel.setText("Fraction of max speed");
-        fracOfMaxMirrorLabel.setMaximumSize(new java.awt.Dimension(120, 16));
-        fracOfMaxMirrorLabel.setMinimumSize(new java.awt.Dimension(120, 16));
-        fracOfMaxMirrorLabel.setPreferredSize(new java.awt.Dimension(120, 16));
+        fracOfMaxMirrorLabel.setMaximumSize(new java.awt.Dimension(120, 22));
+        fracOfMaxMirrorLabel.setMinimumSize(new java.awt.Dimension(120, 22));
+        fracOfMaxMirrorLabel.setPreferredSize(new java.awt.Dimension(120, 22));
 
         mirrorScanLengthField.setText(String.format("%.1f", deviceSettings.getMirrorScanLength()));
         mirrorScanLengthField.setInputVerifier(new typeVerifierDouble());
+        mirrorScanLengthField.setMaximumSize(new java.awt.Dimension(100, 22));
+        mirrorScanLengthField.setMinimumSize(new java.awt.Dimension(100, 22));
+        mirrorScanLengthField.setPreferredSize(new java.awt.Dimension(100, 22));
         mirrorScanLengthField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 mirrorScanLengthFieldActionPerformed(evt);
@@ -354,6 +357,9 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         mirrorScanIntervalField.setText(String.format("%.2f", deviceSettings.getMirrorTriggerDistance()));
         mirrorScanIntervalField.setInputVerifier(new typeVerifierDouble());
+        mirrorScanIntervalField.setMaximumSize(new java.awt.Dimension(100, 22));
+        mirrorScanIntervalField.setMinimumSize(new java.awt.Dimension(100, 22));
+        mirrorScanIntervalField.setPreferredSize(new java.awt.Dimension(100, 22));
         mirrorScanIntervalField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 mirrorScanIntervalFieldActionPerformed(evt);
@@ -362,7 +368,11 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         mirrorScanSpeedField.setText(String.format("%.4f", deviceSettings.getMirrorStageGlobalScanSpeed()));
         mirrorScanSpeedField.setActionCommand("<Not Set>");
+        mirrorScanSpeedField.setEnabled(!mirrorMaxSpeedCheckBox.isSelected());
         mirrorScanSpeedField.setInputVerifier(new typeVerifierDouble());
+        mirrorScanSpeedField.setMaximumSize(new java.awt.Dimension(100, 22));
+        mirrorScanSpeedField.setMinimumSize(new java.awt.Dimension(100, 22));
+        mirrorScanSpeedField.setPreferredSize(new java.awt.Dimension(100, 22));
         mirrorScanSpeedField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 mirrorScanSpeedFieldActionPerformed(evt);
@@ -371,6 +381,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         fracOfMaxMirrorField.setText(String.format("%.2f",deviceSettings.getScanSpeedSafetyFactorMirror()));
         fracOfMaxMirrorField.setToolTipText("The percentage of the maximum theoretical scan speed, 95% is recommended");
+        fracOfMaxMirrorField.setEnabled(mirrorMaxSpeedCheckBox.isSelected());
         fracOfMaxMirrorField.setInputVerifier(new pcVerifier());
         fracOfMaxMirrorField.setMinimumSize(new java.awt.Dimension(50, 22));
         fracOfMaxMirrorField.setName(""); // NOI18N
@@ -473,13 +484,16 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         );
 
         scanLengthLabel.setText("Scan length (µm)");
-        scanLengthLabel.setMaximumSize(new java.awt.Dimension(120, 16));
-        scanLengthLabel.setMinimumSize(new java.awt.Dimension(120, 16));
+        scanLengthLabel.setMaximumSize(new java.awt.Dimension(120, 22));
+        scanLengthLabel.setMinimumSize(new java.awt.Dimension(120, 22));
         scanLengthLabel.setName(""); // NOI18N
-        scanLengthLabel.setPreferredSize(new java.awt.Dimension(120, 16));
+        scanLengthLabel.setPreferredSize(new java.awt.Dimension(120, 22));
 
         xyScanLengthField.setText(String.format("%.1f", deviceSettings.getXyStageScanLength()));
         xyScanLengthField.setInputVerifier(new typeVerifierDouble());
+        xyScanLengthField.setMaximumSize(new java.awt.Dimension(100, 22));
+        xyScanLengthField.setMinimumSize(new java.awt.Dimension(100, 22));
+        xyScanLengthField.setPreferredSize(new java.awt.Dimension(100, 22));
         xyScanLengthField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 xyScanLengthFieldActionPerformed(evt);
@@ -487,12 +501,14 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         });
 
         scanIntervalLabel.setText("Scan interval (µm)");
-        scanIntervalLabel.setMaximumSize(new java.awt.Dimension(120, 16));
-        scanIntervalLabel.setMinimumSize(new java.awt.Dimension(120, 16));
-        scanIntervalLabel.setPreferredSize(new java.awt.Dimension(120, 16));
+        scanIntervalLabel.setMaximumSize(new java.awt.Dimension(120, 22));
+        scanIntervalLabel.setMinimumSize(new java.awt.Dimension(120, 22));
+        scanIntervalLabel.setPreferredSize(new java.awt.Dimension(120, 22));
 
         xyScanIntervalField.setText(String.format("%.2f", deviceSettings.getXyStageTriggerDistance()));
         xyScanIntervalField.setInputVerifier(new typeVerifierDouble());
+        xyScanIntervalField.setMaximumSize(new java.awt.Dimension(100, 22));
+        xyScanIntervalField.setMinimumSize(new java.awt.Dimension(100, 22));
         xyScanIntervalField.setPreferredSize(new java.awt.Dimension(100, 22));
         xyScanIntervalField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -502,13 +518,15 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         scanSpeedLabel.setText("Scan speed (µm/ms)");
         scanSpeedLabel.setToolTipText("Set a \"global\" scan speed for all channels, ticking Max will ignore this");
-        scanSpeedLabel.setMaximumSize(new java.awt.Dimension(120, 16));
-        scanSpeedLabel.setMinimumSize(new java.awt.Dimension(120, 16));
-        scanSpeedLabel.setPreferredSize(new java.awt.Dimension(120, 16));
+        scanSpeedLabel.setMaximumSize(new java.awt.Dimension(120, 22));
+        scanSpeedLabel.setMinimumSize(new java.awt.Dimension(120, 22));
+        scanSpeedLabel.setPreferredSize(new java.awt.Dimension(120, 22));
 
         xyScanSpeedField.setText(String.format("%.4f", deviceSettings.getXyStageCurrentScanSpeed()));
         xyScanSpeedField.setActionCommand("<Not Set>");
+        xyScanSpeedField.setEnabled(!xyMaxSpeedCheckBox.isSelected());
         xyScanSpeedField.setInputVerifier(new typeVerifierDouble());
+        xyScanSpeedField.setMinimumSize(new java.awt.Dimension(100, 22));
         xyScanSpeedField.setPreferredSize(new java.awt.Dimension(100, 22));
         xyScanSpeedField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -517,14 +535,16 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         });
 
         fracOfMaxXyLabel.setText("Fraction of max speed");
-        fracOfMaxXyLabel.setMaximumSize(new java.awt.Dimension(120, 16));
-        fracOfMaxXyLabel.setMinimumSize(new java.awt.Dimension(120, 16));
-        fracOfMaxXyLabel.setPreferredSize(new java.awt.Dimension(120, 16));
+        fracOfMaxXyLabel.setMaximumSize(new java.awt.Dimension(120, 22));
+        fracOfMaxXyLabel.setMinimumSize(new java.awt.Dimension(120, 22));
+        fracOfMaxXyLabel.setPreferredSize(new java.awt.Dimension(120, 22));
 
         fracOfMaxXyField.setText(String.format("%.2f",deviceSettings.getScanSpeedSafetyFactorXy()));
         fracOfMaxXyField.setToolTipText("The percentage of the maximum theoretical scan speed, 95% is recommended");
+        fracOfMaxXyField.setEnabled(xyMaxSpeedCheckBox.isSelected());
         fracOfMaxXyField.setInputVerifier(new pcVerifier());
-        fracOfMaxXyField.setMinimumSize(new java.awt.Dimension(50, 22));
+        fracOfMaxXyField.setMaximumSize(new java.awt.Dimension(100, 22));
+        fracOfMaxXyField.setMinimumSize(new java.awt.Dimension(100, 22));
         fracOfMaxXyField.setPreferredSize(new java.awt.Dimension(100, 22));
         fracOfMaxXyField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -611,7 +631,6 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addGroup(xyStageScanSettingsPanelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
                 .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
         );
@@ -729,19 +748,9 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         });
 
         previewChannelComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(getChannelPresets()));
-        previewChannelComboBox.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                previewChannelComboBoxMouseClicked(evt);
-            }
-        });
-        previewChannelComboBox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                previewChannelComboBoxActionPerformed(evt);
-            }
-        });
-        previewChannelComboBox.getEditor().getEditorComponent().addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                previewChannelComboBoxMouseClicked(evt);
+        previewChannelComboBox.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                previewChannelComboBoxFocusGained(evt);
             }
         });
 
@@ -1045,27 +1054,9 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 Double.parseDouble(fracOfMaxMirrorField.getText());
         deviceSettings.setScanSpeedSafetyFactorMirror(mirrorSafetyFactor);    }//GEN-LAST:event_fracOfMaxMirrorFieldActionPerformed
 
-    private void previewChannelComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_previewChannelComboBoxActionPerformed
-    }//GEN-LAST:event_previewChannelComboBoxActionPerformed
-
     private void previewViewComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_previewViewComboBoxActionPerformed
         // No code needed, the preview runnable uses the combox state directly
     }//GEN-LAST:event_previewViewComboBoxActionPerformed
-
-    private void previewChannelComboBoxMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_previewChannelComboBoxMouseClicked
-        // if the number of elements in the channel box isn't up to date with 
-        // the config, update the combobox
-        dOPM_hostframeLogger.info("Number of presets in Channel config " 
-                + getChannelPresets().length);
-        dOPM_hostframeLogger.info("Number of presets in comboxbox " 
-                + previewChannelComboBox.getModel().getSize());
-        dOPM_hostframeLogger.info("Item count " + previewChannelComboBox.getItemCount());
-        
-        if (getChannelPresets().length != previewChannelComboBox.getModel().getSize()){
-            previewChannelComboBox.setModel(
-                    new javax.swing.DefaultComboBoxModel<>(getChannelPresets()));
-        }
-    }//GEN-LAST:event_previewChannelComboBoxMouseClicked
 
     private void fracOfMaxXyFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fracOfMaxXyFieldActionPerformed
         double xySafetyFactor =
@@ -1102,6 +1093,13 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         double scanLength = Double.parseDouble(xyScanLengthField.getText());
         deviceSettings.setXyStageScanLength(scanLength);
     }//GEN-LAST:event_xyScanLengthFieldActionPerformed
+
+    private void previewChannelComboBoxFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_previewChannelComboBoxFocusGained
+        if (getChannelPresets().length != previewChannelComboBox.getModel().getSize()){
+            previewChannelComboBox.setModel(
+                    new javax.swing.DefaultComboBoxModel<>(getChannelPresets()));
+        }
+    }//GEN-LAST:event_previewChannelComboBoxFocusGained
 
     /**
      * Get name of presets used in the (current) channel Group, set in the MDA

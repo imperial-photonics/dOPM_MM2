@@ -394,13 +394,13 @@
                         <Property name="text" type="java.lang.String" value="Z&apos; scan length (&#xb5;m)"/>
                         <Property name="toolTipText" type="java.lang.String" value="Scan length in z&apos; (normal to imaged plane direction)"/>
                         <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                       </Properties>
                     </Component>
@@ -408,13 +408,13 @@
                       <Properties>
                         <Property name="text" type="java.lang.String" value="Z&apos; scan interval (&#xb5;m)"/>
                         <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                       </Properties>
                     </Component>
@@ -423,13 +423,13 @@
                         <Property name="text" type="java.lang.String" value="Scan speed (&#xb5;m/ms)"/>
                         <Property name="toolTipText" type="java.lang.String" value="Set a &quot;global&quot; scan speed for all channels, ticking Max will ignore this. Speed is physical PI stage lateral scan speed."/>
                         <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                       </Properties>
                     </Component>
@@ -437,13 +437,13 @@
                       <Properties>
                         <Property name="text" type="java.lang.String" value="Fraction of max speed"/>
                         <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                       </Properties>
                     </Component>
@@ -454,6 +454,15 @@
                         </Property>
                         <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                           <Connection code="new typeVerifierDouble()" type="code"/>
+                        </Property>
+                        <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
+                        <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
+                        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
                         </Property>
                       </Properties>
                       <Events>
@@ -468,6 +477,15 @@
                         <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                           <Connection code="new typeVerifierDouble()" type="code"/>
                         </Property>
+                        <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
+                        <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
+                        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
                       </Properties>
                       <Events>
                         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="mirrorScanIntervalFieldActionPerformed"/>
@@ -479,8 +497,20 @@
                           <Connection code="String.format(&quot;%.4f&quot;, deviceSettings.getMirrorStageGlobalScanSpeed())" type="code"/>
                         </Property>
                         <Property name="actionCommand" type="java.lang.String" value="&lt;Not Set&gt;"/>
+                        <Property name="enabled" type="boolean" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                          <Connection code="!mirrorMaxSpeedCheckBox.isSelected()" type="code"/>
+                        </Property>
                         <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                           <Connection code="new typeVerifierDouble()" type="code"/>
+                        </Property>
+                        <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
+                        <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
+                        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
                         </Property>
                       </Properties>
                       <Events>
@@ -493,6 +523,9 @@
                           <Connection code="String.format(&quot;%.2f&quot;,deviceSettings.getScanSpeedSafetyFactorMirror())" type="code"/>
                         </Property>
                         <Property name="toolTipText" type="java.lang.String" value="The percentage of the maximum theoretical scan speed, 95% is recommended"/>
+                        <Property name="enabled" type="boolean" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                          <Connection code="mirrorMaxSpeedCheckBox.isSelected()" type="code"/>
+                        </Property>
                         <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                           <Connection code="new pcVerifier()" type="code"/>
                         </Property>
@@ -559,7 +592,6 @@
                           <EmptySpace max="32767" attributes="0"/>
                       </Group>
                       <Group type="102" attributes="0">
-                          <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                           <Component id="jPanel1" max="32767" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
                       </Group>
@@ -653,14 +685,14 @@
                       <Properties>
                         <Property name="text" type="java.lang.String" value="Scan length (&#xb5;m)"/>
                         <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="name" type="java.lang.String" value="" noResource="true"/>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                       </Properties>
                     </Component>
@@ -672,6 +704,15 @@
                         <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                           <Connection code="new typeVerifierDouble()" type="code"/>
                         </Property>
+                        <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
+                        <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
+                        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
                       </Properties>
                       <Events>
                         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="xyScanLengthFieldActionPerformed"/>
@@ -681,13 +722,13 @@
                       <Properties>
                         <Property name="text" type="java.lang.String" value="Scan interval (&#xb5;m)"/>
                         <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                       </Properties>
                     </Component>
@@ -698,6 +739,12 @@
                         </Property>
                         <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                           <Connection code="new typeVerifierDouble()" type="code"/>
+                        </Property>
+                        <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
+                        <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
                           <Dimension value="[100, 22]"/>
@@ -712,13 +759,13 @@
                         <Property name="text" type="java.lang.String" value="Scan speed (&#xb5;m/ms)"/>
                         <Property name="toolTipText" type="java.lang.String" value="Set a &quot;global&quot; scan speed for all channels, ticking Max will ignore this"/>
                         <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                       </Properties>
                     </Component>
@@ -728,8 +775,14 @@
                           <Connection code="String.format(&quot;%.4f&quot;, deviceSettings.getXyStageCurrentScanSpeed())" type="code"/>
                         </Property>
                         <Property name="actionCommand" type="java.lang.String" value="&lt;Not Set&gt;"/>
+                        <Property name="enabled" type="boolean" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                          <Connection code="!xyMaxSpeedCheckBox.isSelected()" type="code"/>
+                        </Property>
                         <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                           <Connection code="new typeVerifierDouble()" type="code"/>
+                        </Property>
+                        <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
                           <Dimension value="[100, 22]"/>
@@ -743,13 +796,13 @@
                       <Properties>
                         <Property name="text" type="java.lang.String" value="Fraction of max speed"/>
                         <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[120, 16]"/>
+                          <Dimension value="[120, 22]"/>
                         </Property>
                       </Properties>
                     </Component>
@@ -759,11 +812,17 @@
                           <Connection code="String.format(&quot;%.2f&quot;,deviceSettings.getScanSpeedSafetyFactorXy())" type="code"/>
                         </Property>
                         <Property name="toolTipText" type="java.lang.String" value="The percentage of the maximum theoretical scan speed, 95% is recommended"/>
+                        <Property name="enabled" type="boolean" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                          <Connection code="xyMaxSpeedCheckBox.isSelected()" type="code"/>
+                        </Property>
                         <Property name="inputVerifier" type="javax.swing.InputVerifier" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
                           <Connection code="new pcVerifier()" type="code"/>
                         </Property>
+                        <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                          <Dimension value="[100, 22]"/>
+                        </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[50, 22]"/>
+                          <Dimension value="[100, 22]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
                           <Dimension value="[100, 22]"/>
@@ -942,11 +1001,9 @@
             </Property>
           </Properties>
           <Events>
-            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="previewChannelComboBoxMouseClicked"/>
-            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="previewChannelComboBoxActionPerformed"/>
+            <EventHandler event="focusGained" listener="java.awt.event.FocusListener" parameters="java.awt.event.FocusEvent" handler="previewChannelComboBoxFocusGained"/>
           </Events>
           <AuxValues>
-            <AuxValue name="JavaCodeGenerator_ListenersCodePost" type="java.lang.String" value="previewChannelComboBox.getEditor().getEditorComponent().addMouseListener(new java.awt.event.MouseAdapter() {&#xd;&#xa;    public void mouseClicked(java.awt.event.MouseEvent evt) {&#xd;&#xa;        previewChannelComboBoxMouseClicked(evt);&#xd;&#xa;    }&#xd;&#xa;});"/>
             <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
           </AuxValues>
         </Component>

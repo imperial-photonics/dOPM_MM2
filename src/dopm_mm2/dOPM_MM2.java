@@ -4,12 +4,15 @@
  */
 package dopm_mm2;
 
+import dopm_mm2.Devices.PIStage;
+import dopm_mm2.Devices.TangoXYStage;
 import javax.swing.JFrame;
 import org.micromanager.MenuPlugin;
 import org.micromanager.Studio;
 import org.scijava.plugin.Plugin;
 import org.scijava.plugin.SciJavaPlugin;
 import dopm_mm2.GUI.dOPM_hostframe;
+import dopm_mm2.util.FileMM;
 import dopm_mm2.util.MMStudioInstance;
 
 /** dOPM multi dimension acquisition plugin for MicroManager (2024)
@@ -54,9 +57,12 @@ public class dOPM_MM2 implements MenuPlugin, SciJavaPlugin{
     public void onPluginSelected() {
         //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         
-        // initialize singleton class of mmstudio so that static classes
         // i.e. PIStage and TangoXYStage can access it
-        MMStudioInstance.initialize(mm_);  
+        MMStudioInstance.initialize(mm_);
+        PIStage.initialize(mm_);
+        TangoXYStage.initialize(mm_);
+        FileMM.initialize(mm_);
+        
         mm_.logs().logMessage("Loaded dOPM plugin");
         frame_ = new dOPM_hostframe(mm_);
         frame_.setVisible(true);

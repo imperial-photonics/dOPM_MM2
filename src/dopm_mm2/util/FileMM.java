@@ -10,7 +10,6 @@ import org.micromanager.Studio;
 import mmcorej.CMMCore;
 import java.io.IOException;
 import java.io.File;
-import java.util.List;
 import java.util.logging.Logger;
 import org.micromanager.ScriptController;
 
@@ -21,6 +20,22 @@ import org.micromanager.ScriptController;
 public class FileMM {
     private static final Logger fileLogger = Logger.getLogger(SerialCommands.class.getName());
 
+    private static Studio mm_;
+    private static CMMCore core_;
+    
+    /**
+     * Initializer to get hold of the microManager core object
+     * @param mm Studio object associated with running instance of MM
+     */
+    public static void initialize(Studio mm) {
+        if (mm_ == null) {
+            mm_ = mm;
+            core_ = mm.getCMMCore();
+        } else {
+            throw new IllegalStateException("Core has already been initialized.");
+        }
+    }
+    
     /** Preferred constructor, for static use
      * 
      */
@@ -52,8 +67,6 @@ public class FileMM {
 	
 	System.gc();
         
-        Studio mm_ = MMStudioInstance.getStudio();
-        CMMCore core_ = MMStudioInstance.getCore();
         ScriptController sc = mm_.getScriptController();
 	
 	try {
@@ -108,8 +121,6 @@ public class FileMM {
 
     public static int deleteDatastore(String camName, String saveDir, boolean delDirBool) throws IOException{
         
-        Studio mm_ = MMStudioInstance.getStudio();
-        CMMCore core_ = MMStudioInstance.getCore();
         ScriptController sc = mm_.getScriptController();
         
         String fileSaveFolderDir = saveDir + "/";

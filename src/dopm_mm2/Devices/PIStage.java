@@ -7,22 +7,40 @@ package dopm_mm2.Devices;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 import mmcorej.CMMCore;
-import dopm_mm2.util.MMStudioInstance;
+import org.micromanager.Studio;
 
 /**
  * Device control functions, not static, needs to be instantiated with CMMCore Use the functions in
  * here for hardware control, these are directly called by Runnables (which are in turn called by
  * the host_frame) 
  * 
- * Uses the static class 
+ * Uses the static class so methods are directly accessible
+ * 
+ * Must be initialized before using with {@link #initialize}
  *
- * @author lnr19
+ * @author Leo Rowe-Brown
  */
 
 public class PIStage {
 
     private static final Logger PIStageLogger
             = Logger.getLogger(PIStage.class.getName());
+    
+    private static Studio mm_;
+    private static CMMCore core_;
+    
+    /**
+     * Initializer to get hold of the microManager core object
+     * @param mm Studio object associated with running instance of MM
+     */
+    public static void initialize(Studio mm) {
+        if (mm_ == null) {
+            mm_ = mm;
+            core_ = mm.getCMMCore();
+        } else {
+            throw new IllegalStateException("Core has already been initialized.");
+        }
+    }
     
     public PIStage() {
     }
@@ -36,7 +54,7 @@ public class PIStage {
     */
     public static void setPositionMillim(String device, double position){
         try {
-            MMStudioInstance.getCore().setPosition(device, position*1e3);
+            core_.setPosition(device, position*1e3);
             PIStageLogger.info(String.format(
                     "Set %s position to %.4f mm",device, position));
         } catch (Exception e){
@@ -68,15 +86,23 @@ public class PIStage {
         return checkPIMotion(port, 1, 1);
     }
     
+    /**
+     * 
+     * @param port COM port
+     * @param device number of device, when there's just one it's 1
+     * @param axis axis of device, for single axis device it's 1
+     * @return true if stage is ready/not moving
+     * @throws Exception 
+     */
     public static boolean checkPIMotion(String port, int device, int axis) throws Exception{
         String msg = String.format("SRG? %d %d", device, axis);
         String ansHex;
         String err;
         try {
-            MMStudioInstance.getCore().setSerialPortCommand(port, msg, "\n");
-            ansHex = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
-            MMStudioInstance.getCore().setSerialPortCommand(port, "ERR?", "\n");
-            err = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
+            core_.setSerialPortCommand(port, msg, "\n");
+            ansHex = core_.getSerialPortAnswer(port, "\n");
+            core_.setSerialPortCommand(port, "ERR?", "\n");
+            err = core_.getSerialPortAnswer(port, "\n");
             if (!err.equals("0")){
                 PIStageLogger.severe(String.format("Error %s when checking move status with SRG", err));
                 throw new Exception("SRG command: ERR? returned non-zero error " + err);
@@ -113,10 +139,10 @@ public class PIStage {
         String err;
         String msg = String.valueOf((char)5);
         try {
-            MMStudioInstance.getCore().setSerialPortCommand(port, msg, "\n");
-            ans = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
-            MMStudioInstance.getCore().setSerialPortCommand(port, "ERR?", "\n");
-            err = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
+            core_.setSerialPortCommand(port, msg, "\n");
+            ans = core_.getSerialPortAnswer(port, "\n");
+            core_.setSerialPortCommand(port, "ERR?", "\n");
+            err = core_.getSerialPortAnswer(port, "\n");
             if (!err.equals("0")){
                 PIStageLogger.severe(String.format("Error %s when checking move status with #5", err));
             } 
@@ -168,6 +194,13 @@ public class PIStage {
         setPITriggerEnable(port, 1, trigOn);
     }
 
+    /**
+     * Enable the PI's trigger (1) or disable (0)
+     * @param port COM port
+     * @param device if one device connected, 1
+     * @param trigOn 0 to disable trigger, 1 to enable
+     * @throws Exception 
+     */
     public static void setPITriggerEnable(String port, int device, int trigOn) throws Exception {
         // format: TRO? [{<TrigOutID>}] rtn: {<TrigOutID>"="<TrigMode> LF}
         String msg = String.format("TRO %1$d %2$d", device, trigOn);
@@ -246,6 +279,15 @@ public class PIStage {
         }
     }
 
+    /**
+     * Set distance range in which stage triggers. I use this so I can move the 
+     * stage up to the range (like a run/ramp up) to deal with acceleration 
+     * compressing the triggers (which can result in dropped frames.)
+     * @param port
+     * @param device
+     * @param triggerRange
+     * @throws Exception 
+     */
     public static void setPITriggerRange(String port, int device, double[] triggerRange) throws Exception {
 
         String lowerRangeStr = String.format("%.5f", triggerRange[0]);
@@ -279,7 +321,7 @@ public class PIStage {
         int i = 0;
         while (i < max_clears) {
             try {
-                MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
+                core_.getSerialPortAnswer(port, "\n");
             } catch (Exception e) {
                 break;
             }
@@ -296,9 +338,9 @@ public class PIStage {
     }
     
     private static void stopOrHaltPIStage(String port, String msg) throws Exception{
-        MMStudioInstance.getCore().setSerialPortCommand(port, msg, "\n");
-        MMStudioInstance.getCore().setSerialPortCommand(port, "ERR?", "\n");
-        String answerErr = MMStudioInstance.getCore().getSerialPortAnswer(port, "\n");
+        core_.setSerialPortCommand(port, msg, "\n");
+        core_.setSerialPortCommand(port, "ERR?", "\n");
+        String answerErr = core_.getSerialPortAnswer(port, "\n");
         if (!answerErr.equals("10")) throw new PIControllerErrorException(String.format(
                 "Error code %1$s received from PI controller", answerErr));
     }
@@ -313,18 +355,15 @@ public class PIStage {
         boolean isSet = false;
         String ERR;
         
-        // define locally for reuse
-        CMMCore core = MMStudioInstance.getCore();
-
         int i = 0;
         do {
             try {
                 PIStageLogger.info(String.format(
                         "Sending serial command %s to %s", msg, port));
-                core.setSerialPortCommand(port, msg, "\n");
+                core_.setSerialPortCommand(port, msg, "\n");
                 // check for errors
-                core.setSerialPortCommand(port, "ERR?", "\n");
-                ERR = core.getSerialPortAnswer(port, "\n");
+                core_.setSerialPortCommand(port, "ERR?", "\n");
+                ERR = core_.getSerialPortAnswer(port, "\n");
                 if (!ERR.equals("0")) {
                     String errMsg = String.format(
                             "Error code %1$s from ERR? after sending command %2$s", ERR, msg);
@@ -332,8 +371,8 @@ public class PIStage {
                     throw new PIControllerErrorException(errMsg);
                 }
 
-                core.setSerialPortCommand(port, queryMsg, "\n");
-                answer = core.getSerialPortAnswer(port, "\n");
+                core_.setSerialPortCommand(port, queryMsg, "\n");
+                answer = core_.getSerialPortAnswer(port, "\n");
                 PIStageLogger.info(String.format(
                         "Received answer %s from %s", answer, port));
                 // get value after being set
@@ -378,7 +417,7 @@ public class PIStage {
         while (!sendSerialSuccess || attempts > maxRetry) {
             WAITTIME = attempts * attempts * intvl_ms;
             try {
-                MMStudioInstance.getCore().setSerialPortCommand(port, msg, terminator);
+                core_.setSerialPortCommand(port, msg, terminator);
             } catch (Exception ex) {
                 attempts++;
                 PIStageLogger.warning("sendSerialCommandRetry failed (waiting "
@@ -412,7 +451,7 @@ public class PIStage {
         while (!getSerialSuccess || attempts > maxRetry) {
             WAITTIME = attempts * attempts * intvl_ms;
             try {
-                return MMStudioInstance.getCore().getSerialPortAnswer(port, terminator);
+                return core_.getSerialPortAnswer(port, terminator);
             } catch (Exception ex) {
                 attempts++;
                 PIStageLogger.warning("getSerialCommandRetry failed (waiting "
@@ -435,7 +474,7 @@ public class PIStage {
     
     public static String[] viewTriggerSettings(String port){
         String[] settings = new String[5];
-        CMMCore core = MMStudioInstance.getCore();  // get locally for reuse
+        CMMCore core = core_;  // get locally for reuse
         try {
             core.setSerialPortCommand(port, "VEL? 1", "\n");
             settings[0] = "speed," + core.getSerialPortAnswer(port, "\n");
