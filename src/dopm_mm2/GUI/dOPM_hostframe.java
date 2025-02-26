@@ -229,11 +229,20 @@ public class dOPM_hostframe extends javax.swing.JFrame {
         viewsLabel = new javax.swing.JLabel();
         view1CheckBox = new javax.swing.JCheckBox();
         view2CheckBox = new javax.swing.JCheckBox();
+        jButton1 = new javax.swing.JButton();
+        jPanel4 = new javax.swing.JPanel();
+        jLabel3 = new javax.swing.JLabel();
+        jComboBox1 = new javax.swing.JComboBox<>();
+        jRadioButton1 = new javax.swing.JRadioButton();
+        jRadioButton2 = new javax.swing.JRadioButton();
+        jLabel2 = new javax.swing.JLabel();
         previewPanel = new javax.swing.JPanel();
         previewViewComboBox = new javax.swing.JComboBox<>();
         previewChannelComboBox = new javax.swing.JComboBox<>();
         previewChannelLabel = new javax.swing.JLabel();
         previewViewLabel = new javax.swing.JLabel();
+        channelGroupComboBox = new javax.swing.JComboBox<>();
+        jLabel1 = new javax.swing.JLabel();
         snapTestButton = new javax.swing.JButton();
         jMenuBar1 = new javax.swing.JMenuBar();
         jMenu1 = new javax.swing.JMenu();
@@ -300,6 +309,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 .addContainerGap())
         );
 
+        startButton.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         startButton.setText("Run Acquisition");
         startButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -307,6 +317,8 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             }
         });
 
+        stopButton.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        stopButton.setForeground(new java.awt.Color(204, 0, 0));
         stopButton.setText("Interrupt");
         stopButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -461,7 +473,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(mirrorScanSettingsPanelLayout.createSequentialGroup()
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(142, Short.MAX_VALUE))
+                .addContainerGap(205, Short.MAX_VALUE))
         );
         mirrorScanSettingsPanelLayout.setVerticalGroup(
             mirrorScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -620,7 +632,7 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             xyStageScanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(xyStageScanSettingsPanelLayout.createSequentialGroup()
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(146, 146, 146)
+                .addGap(143, 143, 143)
                 .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
@@ -709,8 +721,9 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                                 .addComponent(view2CheckBox))
                             .addComponent(triggerModeComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 208, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addGap(0, 0, Short.MAX_VALUE))
-                    .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
-                .addContainerGap())
+                    .addGroup(scanSettingsPanelLayout.createSequentialGroup()
+                        .addComponent(jTabbedPane1)
+                        .addContainerGap())))
         );
         scanSettingsPanelLayout.setVerticalGroup(
             scanSettingsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -738,7 +751,40 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         jTabbedPane1.getAccessibleContext().setAccessibleName("Mirror scan");
 
-        previewPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Preview"));
+        jButton1.setText("Run Preview Acquisition");
+        jButton1.setEnabled(false);
+        jButton1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton1ActionPerformed(evt);
+            }
+        });
+
+        jPanel4.setBorder(javax.swing.BorderFactory.createTitledBorder("Preview acquisition settings"));
+
+        jLabel3.setText("MIP spacing coarseness factor");
+
+        jComboBox1.setEditable(true);
+        jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "1", "2", "4", "8" }));
+        jComboBox1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jComboBox1ActionPerformed(evt);
+            }
+        });
+
+        jRadioButton1.setText("MIP");
+        jRadioButton1.setEnabled(false);
+
+        jRadioButton2.setSelected(true);
+        jRadioButton2.setText("Slice");
+        jRadioButton2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jRadioButton2ActionPerformed(evt);
+            }
+        });
+
+        jLabel2.setText("Preview type");
+
+        previewPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Quick Preview"));
 
         previewViewComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "View 1", "View 2" }));
         previewViewComboBox.addActionListener(new java.awt.event.ActionListener() {
@@ -758,7 +804,21 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
         previewViewLabel.setText("View");
 
-        snapTestButton.setText("Snap Image");
+        channelGroupComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Channel" }));
+        channelGroupComboBox.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                channelGroupComboBoxFocusGained(evt);
+            }
+        });
+        channelGroupComboBox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                channelGroupComboBoxActionPerformed(evt);
+            }
+        });
+
+        jLabel1.setText("Channel group");
+
+        snapTestButton.setText("Snap at position");
         snapTestButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 snapTestButtonActionPerformed(evt);
@@ -771,27 +831,78 @@ public class dOPM_hostframe extends javax.swing.JFrame {
             previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(previewPanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(previewChannelLabel)
+                .addGroup(previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(previewChannelLabel)
+                    .addComponent(jLabel1))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(previewChannelComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(previewViewLabel)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(previewViewComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(snapTestButton)
+                .addGroup(previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(previewPanelLayout.createSequentialGroup()
+                        .addComponent(channelGroupComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addGroup(previewPanelLayout.createSequentialGroup()
+                        .addComponent(previewChannelComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 77, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(previewViewLabel)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(previewViewComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 77, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 31, Short.MAX_VALUE)
+                        .addComponent(snapTestButton)))
                 .addContainerGap())
         );
         previewPanelLayout.setVerticalGroup(
             previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, previewPanelLayout.createSequentialGroup()
+            .addGroup(previewPanelLayout.createSequentialGroup()
+                .addContainerGap()
                 .addGroup(previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(previewChannelComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(channelGroupComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel1))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(previewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(previewChannelLabel)
+                    .addComponent(previewChannelComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(previewViewLabel)
                     .addComponent(previewViewComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(snapTestButton))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(7, Short.MAX_VALUE))
+        );
+
+        javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
+        jPanel4.setLayout(jPanel4Layout);
+        jPanel4Layout.setHorizontalGroup(
+            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel4Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(previewPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(jPanel4Layout.createSequentialGroup()
+                        .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(jPanel4Layout.createSequentialGroup()
+                                .addComponent(jLabel2)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jRadioButton2)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jRadioButton1))
+                            .addGroup(jPanel4Layout.createSequentialGroup()
+                                .addComponent(jLabel3)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addContainerGap())
+        );
+        jPanel4Layout.setVerticalGroup(
+            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel4Layout.createSequentialGroup()
+                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel3)
+                    .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel2)
+                    .addComponent(jRadioButton2)
+                    .addComponent(jRadioButton1))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(previewPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
         );
 
         jMenu1.setText("File");
@@ -827,16 +938,17 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(fileSettingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(scanSettingsPanel, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(previewPanel, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addGroup(layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(jButton1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(startButton)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(stopButton)
-                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(jPanel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(scanSettingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(fileSettingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -844,14 +956,15 @@ public class dOPM_hostframe extends javax.swing.JFrame {
                 .addContainerGap()
                 .addComponent(scanSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(previewPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(fileSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 74, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(fileSettingsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(startButton)
+                    .addComponent(jButton1)
                     .addComponent(stopButton))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
 
         pack();
@@ -933,10 +1046,16 @@ public class dOPM_hostframe extends javax.swing.JFrame {
 
     private void snapTestButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_snapTestButtonActionPerformed
 
-        int chanIdx = previewChannelComboBox.getSelectedIndex();
-        int viewIdx = previewViewComboBox.getSelectedIndex();
+        String channelGroup = channelGroupComboBox.getSelectedItem().toString();
+        String channelPreset = previewChannelComboBox.getSelectedItem().toString();
+        String viewGroup = "dOPM View";  // hard coded right now
+        String viewPreset = previewViewComboBox.getSelectedItem().toString();
         
-        Runnable opmSnapRunnable = new opmSnap(mm_, deviceSettings, chanIdx, viewIdx);
+        String[] channelCfg = new String[]{channelGroup, channelPreset};
+        String[] viewCfg = new String[]{viewGroup, viewPreset};
+        
+        Runnable opmSnapRunnable = new opmSnap(mm_, deviceSettings, 
+                channelCfg, viewCfg);
         opmSnapRunnable.run();
 
     }//GEN-LAST:event_snapTestButtonActionPerformed
@@ -1095,11 +1214,49 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     }//GEN-LAST:event_xyScanLengthFieldActionPerformed
 
     private void previewChannelComboBoxFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_previewChannelComboBoxFocusGained
-        if (getChannelPresets().length != previewChannelComboBox.getModel().getSize()){
+        String channelGroup = channelGroupComboBox.getSelectedItem().toString();
+        String[] channelGroupPresets = core_.getAvailableConfigs(channelGroup).toArray();
+        if (channelGroupPresets.length != previewChannelComboBox.getModel().getSize()){
             previewChannelComboBox.setModel(
-                    new javax.swing.DefaultComboBoxModel<>(getChannelPresets()));
+                    new javax.swing.DefaultComboBoxModel<>(channelGroupPresets));
         }
     }//GEN-LAST:event_previewChannelComboBoxFocusGained
+
+    /**
+     * By default the channelGroup is set to "Channel". When you click on it it
+     * will make all config groups available
+     * @param evt 
+     */
+    private void channelGroupComboBoxFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_channelGroupComboBoxFocusGained
+        if (core_.getAvailableConfigGroups().size() != channelGroupComboBox.getModel().getSize()){
+            channelGroupComboBox.setModel(
+                    new javax.swing.DefaultComboBoxModel<>(core_.getAvailableConfigGroups().toArray()));
+        }
+    }//GEN-LAST:event_channelGroupComboBoxFocusGained
+
+    /** 
+     * update channel preset list when channel group is updated
+     * 
+     * @param evt 
+     */
+    private void channelGroupComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_channelGroupComboBoxActionPerformed
+        String channelGroupSelected = channelGroupComboBox.getSelectedItem().toString();
+        previewChannelComboBox.setModel(
+            new javax.swing.DefaultComboBoxModel<>(
+                core_.getAvailableConfigs(channelGroupSelected).toArray()));
+    }//GEN-LAST:event_channelGroupComboBoxActionPerformed
+
+    private void jRadioButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jRadioButton2ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jRadioButton2ActionPerformed
+
+    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jButton1ActionPerformed
+
+    private void jComboBox1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jComboBox1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jComboBox1ActionPerformed
 
     /**
      * Get name of presets used in the (current) channel Group, set in the MDA
@@ -1295,18 +1452,27 @@ public class dOPM_hostframe extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton browseDirectoryField;
     private javax.swing.ButtonGroup buttonGroup1;
+    private javax.swing.JComboBox<String> channelGroupComboBox;
     private javax.swing.JMenuItem clearLogsMenuItem;
     private javax.swing.JPanel fileSettingsPanel;
     private javax.swing.JTextField fracOfMaxMirrorField;
     private javax.swing.JLabel fracOfMaxMirrorLabel;
     private javax.swing.JTextField fracOfMaxXyField;
     private javax.swing.JLabel fracOfMaxXyLabel;
+    private javax.swing.JButton jButton1;
+    private javax.swing.JComboBox<String> jComboBox1;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
     private javax.swing.JMenu jMenu1;
     private javax.swing.JMenu jMenu2;
     private javax.swing.JMenuBar jMenuBar1;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
+    private javax.swing.JPanel jPanel4;
+    private javax.swing.JRadioButton jRadioButton1;
+    private javax.swing.JRadioButton jRadioButton2;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JCheckBox mirrorMaxSpeedCheckBox;
     private javax.swing.JTextField mirrorScanIntervalField;

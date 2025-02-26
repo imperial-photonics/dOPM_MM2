@@ -47,27 +47,31 @@ public class opmSnap implements Runnable {
     private String channelGroup;  // get from MdaSettings
     private String viewGroup;  // should be "dOPM View"
     
-    private int channelIdx;  // index of preset in channel group to image
-    private int viewIdx;  // index of preset in channel group to image
+    private String channelPreset;  // index of preset in channel group to image
+    private String viewPreset;  // index of preset in channel group to image
 
     public opmSnap(Studio mm, DeviceSettingsManager deviceSettings, 
-            int channelIdx, int viewIdx) {
+            String[] channelCfg, String[] viewCfg) {
         this.core_ = mm.getCMMCore();
         this.mm_ = mm;
         this.deviceSettings = deviceSettings;
         this.DAQDOPort = deviceSettings.getLaserBlankingDOport();
 
-        this.channelIdx = channelIdx;
-        this.viewIdx = viewIdx;
-        this.viewGroup = "dOPM View";
+        this.channelGroup = channelCfg[0];
+        this.channelPreset = channelCfg[1];
+        this.viewGroup = viewCfg[0];
+        this.viewPreset = viewCfg[1];
     }
     
     @Override
     public void run(){
+        getSnap();
+    }
+    
+    private Image getSnap(){
+        Image snappedImg = null;
         opmSnapLogger.info("Snapping current OPM view");
         try {
-            this.mda = new MdaSettings(mm_);
-
             // store = mm_.data().createRAMDatastore();
             // display = mm_.displays().createDisplay(store);
             
@@ -78,34 +82,38 @@ public class opmSnap implements Runnable {
             // enable blanking 
             try {
                 core_.setProperty(DAQDOPort, "Blanking", "On");
-            } catch (Exception e){
-                dialogBoxes.acquisitionErrorWindow(e);
+            } catch (Exception be){
+                dialogBoxes.acquisitionErrorWindow(be);
             }
             long timeElapsed = System.currentTimeMillis() - currentTimeMillis;
             opmSnapLogger.info("Time taken to enable blanking " + timeElapsed + " ms");
 
-            // get channel group info
-            List<ChannelSpec> chspec = mda.getChannelSpecs();
             
-            if (!chspec.isEmpty()){
-                channelGroup = chspec.get(0).channelGroup();
-                List<String> channelNames = mda.getChannelNames();
-                // set channel config  (if it exists in MDA)
-                core_.setConfig(channelGroup, channelNames.get(channelIdx));
-            } 
+            if (core_.isConfigDefined(channelGroup, channelPreset)){
+                core_.setConfig(channelGroup, channelPreset);
+            } else {
+                dialogBoxes.acquisitionErrorWindow("No valid channel selected ("
+                    + channelGroup + ", " + channelPreset);
+            }
             currentTimeMillis = System.currentTimeMillis();
+            
             // Now set dOPM view
             // get presets from dOPM View config (name is hard coded here)
-            StrVector availableConfigs = core_.getAvailableConfigs("dOPM View");
-            // if (availableConfigs.get(0).equals("NewPreset")) viewIdx++;
-            core_.setConfig(viewGroup, availableConfigs.get(viewIdx));
+            if (core_.isConfigDefined(viewGroup, viewPreset)){
+                core_.setConfig(viewGroup, viewPreset);
+            } else {
+                dialogBoxes.acquisitionErrorWindow("No valid view selected (" 
+                    + viewGroup + ", " + viewPreset);
+            }
+            core_.waitForSystem();  // seems necessary when changing view
             timeElapsed = System.currentTimeMillis() - currentTimeMillis;
             opmSnapLogger.info("Time taken to set view " + timeElapsed + " ms");
             currentTimeMillis = System.currentTimeMillis();
-            Image img = mm_.live().snap(false).get(0);
+            
+            snappedImg = mm_.live().snap(false).get(0);
 
             Album album = mm_.getAlbum();
-            album.addImage(img);
+            album.addImage(snappedImg);
             opmSnapLogger.info("Time taken to snap " + timeElapsed + " ms");
 
             // enable blanking 
@@ -116,9 +124,11 @@ public class opmSnap implements Runnable {
             } catch (Exception e){
                 dialogBoxes.acquisitionErrorWindow(e);
             }
+            return snappedImg;
             
         } catch (Exception e){
             opmSnapLogger.severe(e.getMessage());
+            return snappedImg;
         }
     }
     
